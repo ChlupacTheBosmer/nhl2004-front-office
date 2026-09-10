@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+THESIS: A lineup card that learned to hold the whole league. It refuses the
+stat-tile dashboard and the icon sidebar.
+OWN-WORLD: Pale board, ink text, Toronto blue as the only accent. One component,
+the name plate (number, portrait, condensed name, grade strip), at three sizes.
+Units are rows of slots. A change is a plate struck and re-slotted, the reason
+on the label beneath. Rules do the structure; no cards, no glass. Barlow;
+Phosphor icons. Light and dark from the system.
+STORY: He sees tonight, reads what his staff want done on the plates it
+concerns, opens any player in one click, finds anyone in the league by typing.
+FIRST VIEWPORT: Next game and record on one line; the latest staff messages with
+their changes rendered as plates; Toronto's lines as slot rows beneath.
+FORM: Static hash-routed site: dashboard, roster, player, lines, proposals,
+inbox, reports. Laptop first; plates stack on the phone.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Leafs Front Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="assets/logos/small/LOGO_SML_TOR.png">
+<meta name="theme-color" content="#00205b">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<div id="icons" hidden></div>
+<header class="top">
+  <a class="mark" href="#dashboard" aria-label="Front office home">
+    <img src="assets/logos/small/LOGO_SML_TOR.png" alt="" width="28" height="28">
+    <span class="mark-name">Front Office</span>
+    <span class="mark-date" id="clock"></span>
+  </a>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#dashboard" data-route="dashboard">Today</a>
+    <a href="#lines" data-route="lines">Lines</a>
+    <a href="#roster" data-route="roster">Roster</a>
+    <a href="#proposals" data-route="proposals">Proposals</a>
+    <a href="#inbox" data-route="inbox">Inbox</a>
+    <a href="#reports" data-route="reports">Reports</a>
+  </nav>
+  <form class="find" role="search" id="find" autocomplete="off">
+    <label class="sr-only" for="q">Find a player</label>
+    <svg class="ic" aria-hidden="true"><use href="#i-magnifying-glass"/></svg>
+    <input id="q" name="q" type="search" placeholder="Find a player  /" spellcheck="false" autocomplete="off"
+           role="combobox" aria-expanded="false" aria-controls="find-results" aria-autocomplete="list">
+    <ul id="find-results" class="find-results" hidden role="listbox" aria-label="Players"></ul>
+  </form>
+  <button class="theme" id="theme" type="button" aria-label="Toggle light or dark">
+    <svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>
+  </button>
+</header>
+<main id="view" class="view" tabindex="-1"></main>
+<footer class="foot">
+  <span id="foot-meta"></span>
+  <span>Grades are the shipped 50 to 99 scale. Revised grades exist only for created and drafted players and are marked.</span>
+</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>
