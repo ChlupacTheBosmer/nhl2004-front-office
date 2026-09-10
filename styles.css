@@ -284,3 +284,14 @@ details.run > summary::before { content: "▸"; margin-right: .5rem; color: var(
 details.run[open] > summary::before { content: "▾"; }
 details.more { margin-top: .75rem; }
 details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2); }
+
+/* the overall: first on every strip, big on the player page */
+.gr-ovr .gr-v { font-size: .92rem; }
+.plate--card .gr-ovr .gr-v { font-size: 1.15rem; }
+.ovr-box { display: flex; align-items: center; gap: .9rem; margin: .25rem 0 1rem; }
+.ovr-big { font-family: var(--plate); font-weight: 700; font-size: 2.6rem; line-height: 1; color: var(--ink); }
+.ovr-big.g90 { color: var(--leaf); }
+.ovr-txt { font-size: .875rem; color: var(--ink-2); }
+.ovr-txt b { color: var(--ink); }
+.grade-d { font-size: .7rem; font-weight: 500; color: var(--ink-2); margin-left: .25rem; }
+

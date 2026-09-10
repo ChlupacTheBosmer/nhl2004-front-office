@@ -55,10 +55,19 @@ function face(p, eager = false) {
     ? `<span class="plate-face"><img src="assets/${esc(p.portrait)}" alt="" ${eager ? "" : 'loading="lazy"'} width="36" height="36"></span>`
     : `<span class="plate-face" aria-hidden="true">${esc(initials)}</span>`;
 }
+function ovr(p) {
+  return p.overall == null ? "" : `<span class="gr gr-ovr"><span class="gr-k">OVR</span> <span class="gr-v ${p.overall >= 90 ? "g90" : p.overall >= 80 ? "g80" : ""}">${p.overall}</span></span>`;
+}
 function strip(p) {
   const keys = STRIP[p.position === "G" ? "G" : p.position === "D" ? "D" : "F"];
   const r = p.ratings || {};
-  return keys.map(k => r[k] == null ? "" : `<span class="gr"><span class="gr-k">${esc(k.replace(/_/g, ""))}</span> <span class="gr-v ${r[k] >= 90 ? "g90" : r[k] >= 80 ? "g80" : ""}">${r[k]}</span></span>`).join("");
+  return ovr(p) + keys.map(k => r[k] == null ? "" : `<span class="gr"><span class="gr-k">${esc(k.replace(/_/g, ""))}</span> <span class="gr-v ${r[k] >= 90 ? "g90" : r[k] >= 80 ? "g80" : ""}">${r[k]}</span></span>`).join("");
+}
+function partsText(p) {
+  const q = p.overall_parts; if (!q) return "";
+  const sgn = v => (v > 0 ? "+" : "") + v;
+  const bits = [["form", "form"], ["morale", "morale"], ["facilities", "facilities"], ["venue", "venue"], ["day", "practice"]].filter(([k]) => q[k]).map(([k, l]) => `${l} ${sgn(q[k])}`);
+  return ` · base ${q.base}${bits.length ? " · " + bits.join(" · ") : ""}`;
 }
 function plate(p, { size = "row", state = "", sub, side, note, eager = false, heading = false } = {}) {
   if (!p) return `<span class="plate plate--empty">empty</span>`;
@@ -250,6 +259,7 @@ views.roster = () => {
   const statCols = goalieMode
     ? [["gp", "GP"], ["wins", "W"], ["losses", "L"], ["gaa", "GAA"], ["sv_pct", "SV%"], ["morale", "Morale"], ["salary", "Salary"], ["contract_years", "Yrs"]]
     : [["gp", "GP"], ["goals", "G"], ["assists", "A"], ["points", "P"], ["mpg", "MPG"], ["fo_pct", "FO%"], ["morale", "Morale"], ["salary", "Salary"], ["contract_years", "Yrs"]];
+  statCols.unshift(["overall", "OVR"]);
   const ncols = 4 + statCols.length + cols.length;
   return `<h1>Roster</h1>
   <div class="filters">
@@ -264,7 +274,7 @@ views.roster = () => {
     <tbody>${rows.length ? rows.map(p => `<tr>
       <td class="name l"><a href="#player/${p.player_id}">${face(p)}<span>${esc(p.first_name)} ${esc(p.last_name)}${p.rating_source === "full" ? ' <span class="tag tag-rev">revised</span>' : ""}${p.injury?.out ? ' <span class="tag tag-out">out</span>' : ""}</span></a></td>
       <td>${esc(p.position)}</td><td>${p.age ?? ""}</td><td>${esc(p.team)}</td>
-      ${statCols.map(([k]) => `<td>${k === "salary" ? fmtMoney(p[k]) : (p[k] ?? "")}</td>`).join("")}
+      ${statCols.map(([k]) => k === "overall" ? g(p.overall) : `<td>${k === "salary" ? fmtMoney(p[k]) : (p[k] ?? "")}</td>`).join("")}
       ${cols.map(k => p.position === "G" && !goalieMode ? "<td></td>" : g((p.ratings || {})[k])).join("")}
     </tr>`).join("") : `<tr><td class="l" colspan="${ncols}"><div class="empty">No player matches. Clear a filter, or turn off Toronto only.</div></td></tr>`}</tbody>
   </table></div>`;
@@ -283,6 +293,7 @@ views.player = id => {
   const t = teamByAbbr.get(p.team);
   const keys = p.position === "G" ? D.meta.goalie_keys : D.meta.skater_keys;
   const r = p.ratings || {};
+  const rs = p.ratings_stored || {};
   const { about, passing } = mentions(p);
   const latestBy = new Map(); for (const n of about) if (!latestBy.has(n.agent)) latestBy.set(n.agent, n.date);
   const recent = about.filter(n => latestBy.get(n.agent) === n.date);
@@ -293,9 +304,10 @@ views.player = id => {
   <div class="panel">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${esc(t?.name.replace("®", "") || p.team)}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: "" })}</div>
   <div class="grid-2" style="margin-top:1rem">
     <section>
-      <h2>Grades <span class="muted small">${p.rating_source === "full" ? "revised on file" : "as shipped; not re-graded"}</span></h2>
-      <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade"><span class="grade-k">${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}</span></div>`).join("")}</div>
-      <p class="small muted" style="margin-top:.75rem">No overall rating is shown: the game does not store one, and how it derives the number it displays is not known.</p>
+      ${p.overall != null ? `<div class="ovr-box"><span class="ovr-big ${p.overall >= 90 ? "g90" : ""}">${p.overall}</span><span class="ovr-txt"><b>Overall</b> as the game shows it today${partsText(p)}</span></div>` : ""}
+      <h2>Grades <span class="muted small">as shown today${p.rating_source === "full" ? "; revised stored grades on file" : ""}</span></h2>
+      <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade" ${rs[k] != null && rs[k] !== r[k] ? `title="stored ${rs[k]}"` : ""}><span class="grade-k">${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}${rs[k] != null && rs[k] !== r[k] ? `<span class="grade-d">${r[k] - rs[k] > 0 ? "+" : ""}${r[k] - rs[k]}</span>` : ""}</span></div>`).join("")}</div>
+      <p class="small muted" style="margin-top:.75rem">A grade carries a small figure where today's number differs from the stored grade: form, morale, facilities and venue move it day to day.</p>
       <h2>This season</h2>
       <div class="facts">
         ${p.position === "G"
