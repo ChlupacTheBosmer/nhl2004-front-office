@@ -63,7 +63,7 @@ p { margin: 0 0 .75rem; }
 }
 .mark { display: flex; align-items: center; gap: .6rem; font-family: var(--plate); font-weight: 600; font-size: 1.2rem; letter-spacing: .01em; }
 .mark:hover { text-decoration: none; }
-.mark img { display: block; }
+.mark img { display: block; width: 28px; height: 28px; border-radius: 4px; background: #fff; object-fit: contain; }
 .mark-date { font-family: var(--font); font-weight: 400; font-size: .875rem; color: var(--ink-2); margin-left: .25rem; }
 .tabs { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: none; }
 .tabs a {
@@ -247,7 +247,7 @@ table.tbl { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 /* ---------- dashboard ---------- */
 .today { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; padding: .9rem; }
 .today .vs { display: flex; gap: .75rem; align-items: center; }
-.today .vs img { width: 44px; height: 44px; object-fit: contain; }
+.today .vs img { width: 44px; height: 44px; object-fit: contain; border-radius: 6px; background: #fff; }
 .today .big { font-family: var(--plate); font-weight: 700; font-size: 1.73rem; line-height: 1; }
 .today .rec-line { color: var(--ink-2); }
 .form { display: inline-flex; gap: 2px; margin-left: .5rem; vertical-align: middle; }

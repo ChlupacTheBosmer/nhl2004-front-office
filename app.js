@@ -38,6 +38,7 @@ async function load() {
   const res = await Promise.all(names.map(n => fetch(`data/${n}.json`).then(r => { if (!r.ok) throw new Error(`${n}.json ${r.status}`); return r.json(); })));
   names.forEach((n, i) => D[n] = res[i]);
   TOR = D.meta.team;
+  const mark = document.querySelector(".mark img"); if (mark) mark.src = asset(`logos/square/${TOR}.png`);
   byId = new Map(D.players.map(p => [p.player_id, p]));
   byTeam = new Map(); bySurname = new Map();
   for (const p of D.players) {
@@ -53,10 +54,13 @@ async function icons() {
 }
 
 // ---------------------------------------------------------------- plate
+// Image files keep their names across reprocessing; the version query keeps a
+// browser from showing last week's crop.
+const asset = path => `assets/${esc(path)}?${encodeURIComponent(D.meta?.asset_version || "0")}`;
 function face(p, eager = false) {
   const initials = (p.first_name?.[0] || "") + (p.last_name?.[0] || "");
   return p.portrait
-    ? `<span class="plate-face"><img src="assets/${esc(p.portrait)}" alt="" ${eager ? "" : 'loading="lazy"'} width="36" height="36"></span>`
+    ? `<span class="plate-face"><img src="${asset(p.portrait)}" alt="" ${eager ? "" : 'loading="lazy"'} width="36" height="36"></span>`
     : `<span class="plate-face" aria-hidden="true">${esc(initials)}</span>`;
 }
 function ovrBig(p) {
@@ -222,11 +226,11 @@ views.dashboard = () => {
   <div class="panel">
     <div class="today">
       <div class="vs">
-        <img src="assets/${esc(tor.logo_large)}" alt="">
+        <img src="${asset(tor.logo_square)}" alt="">
         <div><div class="big">${tor.w}-${tor.l}-${tor.otl}</div><div class="muted small">${tor.pts} points · ${tor.gp} games · ${tor.gf} for, ${tor.ga} against
           <span class="form" role="img" aria-label="Last ten: ${recent.map(g => g.result).join(", ")}">${recent.map(g => `<i class="${g.result === "W" ? "w" : g.result === "OTL" ? "o" : "l"}" title="${esc(g.result)} ${g.gf}-${g.ga} ${g.at_home ? "vs" : "at"} ${esc(g.opponent)}"></i>`).join("")}</span></div></div>
       </div>
-      ${nx ? `<div class="vs"><span class="muted">Next</span><img src="assets/${esc(opp?.logo_large || "")}" alt=""><div><div class="big">${nx.at_home ? "vs" : "at"} ${esc(nx.opponent)}</div><div class="muted small">${fmtDateLong(nx.game_date)} · they are ${nx.opp_w}-${nx.opp_l}-${nx.opp_otl}, last ten ${esc(nx.opp_last10 || "")}</div></div></div>` : ""}
+      ${nx ? `<div class="vs"><span class="muted">Next</span><img src="${asset(opp?.logo_square || "")}" alt=""><div><div class="big">${nx.at_home ? "vs" : "at"} ${esc(nx.opponent)}</div><div class="muted small">${fmtDateLong(nx.game_date)} · they are ${nx.opp_w}-${nx.opp_l}-${nx.opp_otl}, last ten ${esc(nx.opp_last10 || "")}</div></div></div>` : ""}
     </div>
   </div>
   <div class="grid-2">
