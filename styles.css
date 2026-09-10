@@ -129,7 +129,8 @@ a.plate:hover, button.plate:hover { border-color: var(--ink-2); text-decoration:
 .tag-rev { color: var(--leaf); }
 .plate--slot { grid-template-columns: auto auto 1fr; padding: .35rem .5rem; }
 .plate--slot .plate-face { width: 40px; height: 40px; }
-.plate--card { grid-template-columns: auto auto 1fr; gap: 1rem; padding: 1rem; }
+.plate--card { grid-template-columns: auto auto 1fr auto; gap: 1rem; padding: 1rem; align-items: center; }
+.plate--card .plate-side { align-self: center; }
 .plate--card .plate-face { width: 96px; height: 96px; border-radius: 4px; font-size: 1.4rem; }
 .plate--card .plate-num { font-size: 2rem; }
 .plate--card .plate-name { font-size: 1.9rem; white-space: normal; }
@@ -294,4 +295,38 @@ details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2);
 .ovr-txt { font-size: .875rem; color: var(--ink-2); }
 .ovr-txt b { color: var(--ink); }
 .grade-d { font-size: .7rem; font-weight: 500; color: var(--ink-2); margin-left: .25rem; }
+
+/* profile header: the overall as the first thing on the card */
+.ovr-hero { display: grid; justify-items: end; align-self: start; line-height: 1; }
+.ovr-hero b { font-family: var(--plate); font-weight: 700; font-size: 2.4rem; color: var(--ink); }
+.ovr-hero.g90 b { color: var(--leaf); }
+.ovr-hero span { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin-top: .2rem; }
+.ovr-note { margin: 0 0 .75rem; }
+
+/* staff notes: one line each, open for the reasoning */
+.note > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; gap: .6rem 1rem; align-items: baseline; padding: .55rem .9rem; }
+.note > summary::-webkit-details-marker { display: none; }
+.note > summary:hover { background: var(--leaf-soft); }
+.note-k { display: flex; gap: .4rem; align-items: baseline; font-size: .78rem; color: var(--ink-2); white-space: nowrap; }
+.note-s { font-weight: 500; }
+.note-m { font-size: .78rem; color: var(--ink-2); white-space: nowrap; }
+.note-b { padding: 0 .9rem .8rem 1rem; color: var(--ink-2); font-size: .9rem; display: grid; gap: .5rem; }
+.note-b p { margin: 0; }
+.note[open] > summary { background: var(--rail); }
+.notes-h { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 1rem 0 .35rem; }
+@media (max-width: 700px) { .note > summary { grid-template-columns: 1fr; gap: .25rem; } }
+
+/* players named in a report: a chip with face, name and overall */
+.chip-p { display: inline-flex; align-items: center; gap: .3rem; padding: .05rem .35rem .05rem .12rem; margin-right: -.1rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--rail); color: var(--ink); text-decoration: none; vertical-align: middle; line-height: 1.4; }
+.chip-p .plate-face { width: 20px; height: 20px; border-radius: 50%; font-size: .55rem; }
+.chip-p span { font-weight: 500; }
+.chip-p b { font-family: var(--plate); font-weight: 700; color: var(--leaf); }
+.chip-p:hover { border-color: var(--leaf); text-decoration: none; }
+.chip-l { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule); }
+.prose.report { max-width: 80ch; }
+.prose.report h2 { margin-top: 1.6rem; padding-top: .8rem; border-top: 1px solid var(--rule); }
+.prose.report h2:first-child { border-top: 0; padding-top: 0; margin-top: .5rem; }
+.report-recs { margin: .75rem 0 1rem; }
+.report-recs h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .35rem; }
+.plate-face img { object-position: center top; }
 

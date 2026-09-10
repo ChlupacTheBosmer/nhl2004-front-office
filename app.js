@@ -55,6 +55,9 @@ function face(p, eager = false) {
     ? `<span class="plate-face"><img src="assets/${esc(p.portrait)}" alt="" ${eager ? "" : 'loading="lazy"'} width="36" height="36"></span>`
     : `<span class="plate-face" aria-hidden="true">${esc(initials)}</span>`;
 }
+function ovrBig(p) {
+  return p.overall == null ? "" : `<span class="ovr-hero ${p.overall >= 90 ? "g90" : ""}"><b>${p.overall}</b><span>overall</span></span>`;
+}
 function ovr(p) {
   return p.overall == null ? "" : `<span class="gr gr-ovr"><span class="gr-k">OVR</span> <span class="gr-v ${p.overall >= 90 ? "g90" : p.overall >= 80 ? "g80" : ""}">${p.overall}</span></span>`;
 }
@@ -174,18 +177,30 @@ function board(team, { compact = false, shortNotes = false } = {}) {
   const lines = linesOf(team);
   const props = proposalsFor(team);
   const units = compact ? UNITS.slice(0, 4) : UNITS;
-  return `<div class="board">${units.map((u, ui) => {
-    return `<div class="unit"><div class="unit-label">${u[3]}</div><div class="slots" style="--n:${u[4].length}">${u[4].map(pos => {
-      const p = slotPlayer(lines, u, pos);
-      const hit = props.find(x => x.curP && p && x.curP.player_id === p.player_id && (!x.slot || slotMatches(x.slot, u, pos)));
-      const note = hit ? `<b>${AGENT_LABEL[hit.agent]}</b> · ${esc(hit.reason_class || "")}${shortNotes ? "" : ": " + esc(hit.summary)}` : "";
-      let html;
-      if (hit && hit.proP && hit.proP.player_id !== p.player_id) html = plate(p, { size: "slot", state: "is-struck", eager: ui < 2 }) + plate(hit.proP, { size: "slot", state: "is-proposed", note });
-      else if (hit) html = plate(p, { size: "slot", state: "is-selected", note, eager: ui < 2 });
-      else html = plate(p, { size: "slot", eager: ui < 2 });
-      return `<div class="slot"><span class="slot-pos">${POS_LABEL[pos] || pos}</span>${html}</div>`;
-    }).join("")}</div></div>`;
-  }).join("")}</div>`;
+  const ORD = ["1st", "2nd", "3rd", "4th"];
+  // Even-strength units are stored as five-man lines; the board shows the three
+  // forward lines/rows first and the defence pairs as rows of their own, so a
+  // fourth line without a pair beside it no longer looks like a gap.
+  const rows = [];
+  for (const [ui, u] of units.entries()) {
+    if (u[1] === "even_strength") rows.push({ u, ui, label: u[3], positions: u[4].filter(x => !/D$/.test(x)), cols: 3 });
+    else rows.push({ u, ui, label: u[3], positions: u[4], cols: u[4].length });
+  }
+  const pairs = units.map((u, ui) => ({ u, ui })).filter(({ u }) => u[1] === "even_strength" && u[4].some(x => /D$/.test(x)))
+    .map(({ u, ui }, i) => ({ u, ui, label: `${ORD[i] || i + 1} pair`, positions: u[4].filter(x => /D$/.test(x)), cols: 3 }));
+  const lastES = rows.map(r => r.u[1]).lastIndexOf("even_strength");
+  rows.splice(lastES + 1, 0, ...pairs);
+  const row = ({ u, ui, label, positions, cols }) => `<div class="unit"><div class="unit-label">${esc(label)}</div><div class="slots" style="--n:${cols}">${positions.map(pos => {
+    const p = slotPlayer(lines, u, pos);
+    const hit = props.find(x => x.curP && p && x.curP.player_id === p.player_id && (!x.slot || slotMatches(x.slot, u, pos)));
+    const note = hit ? `<b>${AGENT_LABEL[hit.agent]}</b> · ${esc(hit.reason_class || "")}${shortNotes ? "" : ": " + esc(hit.summary)}` : "";
+    let html;
+    if (hit && hit.proP && hit.proP.player_id !== p.player_id) html = plate(p, { size: "slot", state: "is-struck", eager: ui < 2 }) + plate(hit.proP, { size: "slot", state: "is-proposed", note });
+    else if (hit) html = plate(p, { size: "slot", state: "is-selected", note, eager: ui < 2 });
+    else html = plate(p, { size: "slot", eager: ui < 2 });
+    return `<div class="slot"><span class="slot-pos">${POS_LABEL[pos] || pos}</span>${html}</div>`;
+  }).join("")}</div></div>`;
+  return `<div class="board">${rows.map(row).join("")}</div>`;
 }
 
 // ---------------------------------------------------------------- views
@@ -301,10 +316,10 @@ views.player = id => {
   const notes = about;
   const slotNames = p.slots.filter(s => !/^[HX]/.test(s.code)).map(s => ({ even_strength: "Line", power_play: "PP", penalty_kill: "PK", four_on_four: "4v4", five_on_three: "5v3", goalie: "G", shootout: "SO" }[s.unit] ?? s.unit) + (s.unit_no ?? "") + " " + (s.position || "")).join(" · ");
   return `
-  <div class="panel">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${esc(t?.name.replace("®", "") || p.team)}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: "" })}</div>
+  <div class="panel">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${esc(t?.name.replace("®", "") || p.team)}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: ovrBig(p) })}</div>
   <div class="grid-2" style="margin-top:1rem">
     <section>
-      ${p.overall != null ? `<div class="ovr-box"><span class="ovr-big ${p.overall >= 90 ? "g90" : ""}">${p.overall}</span><span class="ovr-txt"><b>Overall</b> as the game shows it today${partsText(p)}</span></div>` : ""}
+      ${p.overall != null ? `<p class="small muted ovr-note"><b>Overall ${p.overall}</b> as the game shows it today${partsText(p)}</p>` : ""}
       <h2>Grades <span class="muted small">as shown today${p.rating_source === "full" ? "; revised stored grades on file" : ""}</span></h2>
       <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade" ${rs[k] != null && rs[k] !== r[k] ? `title="stored ${rs[k]}"` : ""}><span class="grade-k">${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}${rs[k] != null && rs[k] !== r[k] ? `<span class="grade-d">${r[k] - rs[k] > 0 ? "+" : ""}${r[k] - rs[k]}</span>` : ""}</span></div>`).join("")}</div>
       <p class="small muted" style="margin-top:.75rem">A grade carries a small figure where today's number differs from the stored grade: form, morale, facilities and venue move it day to day.</p>
@@ -322,10 +337,10 @@ views.player = id => {
       ${slotNames ? `<p class="small muted" style="margin-top:.75rem">Units: ${esc(slotNames)}</p>` : ""}
     </section>
     <section>
-      <h2>Staff notes <span class="muted small">${notes.length ? `${notes.length} about him` : ""}</span></h2>
-      <div class="panel divide">${recent.length ? recent.map(x => recHtml(x, { compact: true })).join("") : `<div class="empty">Nothing on file for him yet.</div>`}</div>
-      ${older.length ? `<details class="more"><summary>${older.length} earlier note${older.length === 1 ? "" : "s"}</summary><div class="panel divide">${older.map(x => recHtml(x, { compact: true })).join("")}</div></details>` : ""}
-      ${passing.length ? `<details class="more"><summary>Mentioned in ${passing.length} other note${passing.length === 1 ? "" : "s"}</summary><div class="panel divide">${passing.slice(0, 12).map(x => recHtml(x, { compact: true })).join("")}</div></details>` : ""}
+      <h2>Staff notes <span class="muted small">${notes.length ? `${notes.length} about him · one line each, open one for the reasoning` : ""}</span></h2>
+      <div class="panel divide notes">${recent.length ? recent.map(x => noteHtml(x, p)).join("") : `<div class="empty">Nothing on file for him yet.</div>`}</div>
+      ${older.length ? `<h3 class="notes-h">Earlier</h3><div class="panel divide notes">${older.map(x => noteHtml(x, p)).join("")}</div>` : ""}
+      ${passing.length ? `<h3 class="notes-h">Mentioned in passing</h3><div class="panel divide notes">${passing.slice(0, 12).map(x => noteHtml(x, p)).join("")}</div>` : ""}
     </section>
   </div>`;
 };
@@ -341,11 +356,10 @@ function runHtml(run, { collapsible = false, open = true } = {}) {
   if (collapsible) return `<details class="panel run" ${open ? "open" : ""}><summary class="run-h">${head}</summary>${body}</details>`;
   return `<div><div class="run-h">${head}</div>${body}</div>`;
 }
-function recHtml(r, { compact = false } = {}) {
+function recBody(r) {
   let body = "";
   const isTrade = r.kind === "trade";
-  if (compact) { /* on a player's own page the plates are redundant */ }
-  else if (["line_change", "goalie", "ice_time", "trade"].includes(r.kind) || (r.current && r.proposed)) {
+  if (["line_change", "goalie", "ice_time", "trade"].includes(r.kind) || (r.current && r.proposed)) {
     const cur = resolve(r.current, isTrade ? { preferTeam: TOR } : { onlyTeam: TOR }), pro = resolve(r.proposed, isTrade ? { avoidTeam: TOR, preferTeam: null } : { onlyTeam: TOR });
     if (cur.length || pro.length) body = `<div class="swap">
       <div class="swap-col"><h4>${isTrade ? "We give" : "Now"}</h4>${cur.length ? cur.map(p => plate(p, { state: r.proposed ? "is-struck" : "is-selected" })).join("") : `<div class="text">${esc(r.current || "")}</div>`}</div>
@@ -362,6 +376,20 @@ function recHtml(r, { compact = false } = {}) {
     const who = resolve(r.current || r.summary, { preferTeam: TOR, limit: 3 });
     if (who.length) body = `<div class="swap-col">${who.map(p => plate(p, { state: "is-selected" })).join("")}</div>`;
   }
+  return body;
+}
+function noteHtml(x, about) {
+  // One line the eye can scan: what kind of note, the decision, who and when.
+  // The reasoning and the plates open on click; the plate of the man whose
+  // page this is stays, so "Gaborik over Mogilny" still shows both.
+  return `<details class="note"><summary>
+    <span class="note-k"><span class="kind">${KIND_LABEL[x.kind] || esc(x.kind)}</span>${x.reason_class ? `<span class="reason reason-${esc(x.reason_class)}">${esc(x.reason_class)}</span>` : ""}</span>
+    <span class="note-s">${esc(x.summary)}</span>
+    <span class="note-m"><span class="agent-${esc(x.agent)}">${AGENT_LABEL[x.agent] || x.agent}</span> · ${esc(fmtDate(x.date))}</span>
+  </summary><div class="note-b">${x.rationale ? `<p>${esc(x.rationale)}</p>` : ""}${x.slot ? `<p class="small muted">${esc(x.slot)}${x.confidence ? ` · ${esc(x.confidence)} confidence` : ""}</p>` : ""}${recBody(x)}</div></details>`;
+}
+function recHtml(r, { compact = false } = {}) {
+  const body = compact ? "" : recBody(r);
   return `<div class="rec">
     <div class="rec-h"><span class="kind">${KIND_LABEL[r.kind] || esc(r.kind)}</span>${r.reason_class ? `<span class="reason reason-${esc(r.reason_class)}">${esc(r.reason_class)}</span>` : ""}${r.slot ? `<span>${esc(r.slot)}</span>` : ""}${r.confidence ? `<span>${esc(r.confidence)} confidence</span>` : ""}${r.agent ? `<span class="agent-${esc(r.agent)}">${AGENT_LABEL[r.agent]}</span>` : ""}</div>
     <div class="rec-summary">${esc(r.summary)}</div>
@@ -389,17 +417,73 @@ views.reports = id => {
   if (id != null) {
     const r = D.reports[Number(id)];
     if (!r) return `<h1>Report</h1><div class="panel"><div class="empty">No such report.</div></div>`;
-    return `<p class="small"><a href="#reports">All reports</a></p><h1 class="sr-only">${esc(r.title)}</h1><div class="panel"><div class="run-h"><b class="agent-${esc(r.agent)}">${AGENT_LABEL[r.agent]}</b><span class="muted small">${fmtDateLong(r.in_game_date)} · run ${r.run}</span></div><div class="prose">${md(r.markdown)}</div></div>`;
+    return `<p class="small"><a href="#reports">All reports</a></p><h1 class="sr-only">${esc(r.title)}</h1><div class="panel"><div class="run-h"><b class="agent-${esc(r.agent)}">${AGENT_LABEL[r.agent]}</b><span class="muted small">${fmtDateLong(r.in_game_date)} · run ${r.run}</span></div><div class="prose report">${reportHtml(r)}</div></div>`;
   }
   return `<h1>Reports</h1><ul class="list panel divide">${D.reports.map((r, i) => `<li><a href="#reports/${i}"><span><b class="agent-${esc(r.agent)}">${AGENT_LABEL[r.agent]}</b> · ${esc(r.title)}</span><span class="muted small">${fmtDateLong(r.in_game_date)}</span></a></li>`).join("") || `<li class="empty">No reports yet.</li>`}</ul>`;
 };
 views.missing = () => `<h1>Not found</h1><div class="panel"><div class="empty">There is no such page. <a href="#dashboard">Back to today</a>.</div></div>`;
 
+// A report is the duty sections of one run. Each becomes a titled section with
+// the prose, then the proposals that run filed under that duty, rendered as the
+// same cards as on the Proposals page. Players named in the prose become chips.
+function reportHtml(r) {
+  const run = D.recommendations.find(x => x.agent === r.agent && x.in_game_date === r.in_game_date && x.run === r.run);
+  const parts = [];
+  let cur = { title: null, lines: [] }, first = true;
+  for (const l of r.markdown.replace(/\r/g, "").split("\n")) {
+    if (first && /^#\s/.test(l)) { first = false; continue; }              // the title line; the panel header carries it
+    first = false;
+    const m = /^#{2,3}\s+(.*)/.exec(l);
+    if (m) { if (/^analysis$/i.test(m[1].trim())) continue; parts.push(cur); cur = { title: m[1].trim(), lines: [] }; continue; }
+    cur.lines.push(l);
+  }
+  parts.push(cur);
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  return parts.filter(s => s.title || s.lines.some(l => l.trim())).map(s => {
+    const recs = run && s.title ? (run.recommendations || []).filter(x => (x.duty || "").replace(/_/g, " ").toLowerCase() === s.title.toLowerCase()) : [];
+    return `${s.title ? `<h2>${esc(cap(s.title))}</h2>` : ""}${md(s.lines.join("\n"), { chips: true })}${recs.length ? `<div class="report-recs"><h3>Filed under ${esc(s.title.toLowerCase())}</h3><div class="panel divide">${recs.map(x => recHtml({ ...x, agent: run.agent })).join("")}</div></div>` : ""}`;
+  }).join("");
+}
+// Player mentions in prose become chips: face, name, overall. A full name is
+// matched anywhere in the league; a bare surname only when it is unique, or
+// unique on our club. The first mention in a paragraph gets the chip, later
+// ones a plain link, so a paragraph about one man is not a wall of faces.
+let NAMES = null;
+function nameIndex() {
+  if (NAMES) return NAMES;
+  const full = [], sur = [];
+  for (const p of D.players) full.push([`${p.first_name} ${p.last_name}`, p]);
+  for (const [k, ps] of bySurname) {
+    const tor = ps.filter(p => p.team === TOR);
+    const pick = tor.length === 1 ? tor[0] : ps.length === 1 ? ps[0] : null;
+    if (pick && k.length > 2) sur.push([pick.last_name, pick]);
+  }
+  full.sort((a, b) => b[0].length - a[0].length); sur.sort((a, b) => b[0].length - a[0].length);
+  return NAMES = { full, sur };
+}
+function chipify(html) {
+  const { full, sur } = nameIndex();
+  const seen = new Set();
+  const sub = (text, name, p) => {
+    const re = new RegExp(`(^|[^\\w>#/"'])(${esc(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\w'’-])`, "g");
+    let n = 0;
+    return text.replace(re, (m, pre, hit) => {
+      n++;
+      if (n === 1 && !seen.has(p.player_id)) { seen.add(p.player_id); return `${pre}<a class="chip-p" href="#player/${p.player_id}">${face(p)}<span>${hit}</span>${p.overall != null ? `<b>${p.overall}</b>` : ""}</a>`; }
+      return `${pre}<a class="chip-l" href="#player/${p.player_id}">${hit}</a>`;
+    });
+  };
+  for (const [name, p] of full) if (html.includes(esc(name))) html = sub(html, name, p);
+  for (const [name, p] of sur) if (!seen.has(p.player_id) && html.includes(name)) html = sub(html, name, p);
+  return html;
+}
+
 // A small markdown renderer: headings, paragraphs, lists, tables, bold, italics, code, quotes.
-function md(src) {
+function md(src, { chips = false } = {}) {
   const lines = src.replace(/\r/g, "").split("\n");
   let out = "", i = 0;
-  const inline = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>").replace(/_([^_\n]+)_/g, "<i>$1</i>");
+  const inline0 = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>").replace(/_([^_\n]+)_/g, "<i>$1</i>");
+  const inline = chips ? x => chipify(inline0(x)) : inline0;
   while (i < lines.length) {
     const l = lines[i];
     if (/^```/.test(l)) { let j = i + 1, buf = []; while (j < lines.length && !/^```/.test(lines[j])) buf.push(lines[j++]); out += `<pre><code>${esc(buf.join("\n"))}</code></pre>`; i = j + 1; continue; }
