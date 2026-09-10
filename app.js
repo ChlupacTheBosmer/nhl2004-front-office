@@ -22,6 +22,10 @@ const UNITS = [
 const POS_LABEL = { LW: "Left wing", C: "Centre", RW: "Right wing", LD: "Left defence", RD: "Right defence", G1: "Starter", G2: "Backup", D: "Defence", G: "Goalie" };
 const KIND_LABEL = { line_change: "Line change", ice_time: "Ice time", goalie: "Goalie", roster_gap: "Roster gap", development: "Development", no_change: "No change", trade: "Trade", target: "Target", renewal: "Renewal", release: "Release", signing: "Signing", draft: "Draft" };
 const AGENT_LABEL = { coach: "Coach", gm_assistant: "GM Assistant" };
+// What each grade code means, for the tooltip on every code the page shows.
+const ATTR_LABEL = { SPEE: "speed", ACCE: "acceleration", AGIL: "agility", BALA: "balance", ENDU: "endurance", CHKG: "checking", TOUG: "toughness", FIGH: "fighting", AGGR: "aggression", HERO: "hero", ACCU: "shot accuracy", SHPW: "shot power", PASS: "passing", PUCK: "puck control", DEKG: "deking", FACE: "faceoffs", PENA: "penalty proneness", INJU: "injury proneness", POTE: "potential", PRES: "prestige", ODBI: "offence / defence bias", PCBI: "pass / carry bias", SPBI: "shoot / pass bias",
+  GSH_: "glove high", GSL_: "glove low", SSH_: "stick high", SSL_: "stick low", "5HOL": "five-hole", BRKA: "breakaways", REBC: "rebound control", SREC: "recovery", INTE: "intensity", POKE: "poke check", PADL: "paddle down", POSI: "positioning", FLOP: "floppiness", STYL: "style (stand-up / butterfly)", CONS: "consistency", OVR: "overall, as the game shows it today" };
+const attrTitle = k => ATTR_LABEL[k] ? ` title="${esc(ATTR_LABEL[k])}"` : "";
 // The grade strip on every plate: the three grades that say most about a man in that job.
 const STRIP = { F: ["ACCU", "SHPW", "SPEE"], D: ["CHKG", "PASS", "SPEE"], G: ["GSH_", "GSL_", "REBC"] };
 
@@ -59,12 +63,12 @@ function ovrBig(p) {
   return p.overall == null ? "" : `<span class="ovr-hero ${p.overall >= 90 ? "g90" : ""}"><b>${p.overall}</b><span>overall</span></span>`;
 }
 function ovr(p) {
-  return p.overall == null ? "" : `<span class="gr gr-ovr"><span class="gr-k">OVR</span> <span class="gr-v ${p.overall >= 90 ? "g90" : p.overall >= 80 ? "g80" : ""}">${p.overall}</span></span>`;
+  return p.overall == null ? "" : `<span class="gr gr-ovr"><span class="gr-k"${attrTitle("OVR")}>OVR</span> <span class="gr-v ${p.overall >= 90 ? "g90" : p.overall >= 80 ? "g80" : ""}">${p.overall}</span></span>`;
 }
 function strip(p) {
   const keys = STRIP[p.position === "G" ? "G" : p.position === "D" ? "D" : "F"];
   const r = p.ratings || {};
-  return ovr(p) + keys.map(k => r[k] == null ? "" : `<span class="gr"><span class="gr-k">${esc(k.replace(/_/g, ""))}</span> <span class="gr-v ${r[k] >= 90 ? "g90" : r[k] >= 80 ? "g80" : ""}">${r[k]}</span></span>`).join("");
+  return ovr(p) + keys.map(k => r[k] == null ? "" : `<span class="gr"><span class="gr-k"${attrTitle(k)}>${esc(k.replace(/_/g, ""))}</span> <span class="gr-v ${r[k] >= 90 ? "g90" : r[k] >= 80 ? "g80" : ""}">${r[k]}</span></span>`).join("");
 }
 function partsText(p) {
   const q = p.overall_parts; if (!q) return "";
@@ -268,7 +272,7 @@ views.roster = () => {
   const dir = Number(s.dir);
   let rows = D.players.filter(p => (s.tor !== "1" || p.team === TOR) && (!s.team || p.team === s.team) && (!s.pos || p.position === s.pos) && (!s.q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(s.q.toLowerCase())));
   rows.sort((a, b) => { const x = val(a, s.sort), y = val(b, s.sort); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * dir || a.last_name.localeCompare(b.last_name); });
-  const th = (k, label, cls = "") => `<th scope="col" class="${cls}" aria-sort="${s.sort === k ? (dir < 0 ? "descending" : "ascending") : "none"}"><button type="button" class="sort" data-sort="${k}" title="Sort by ${esc(label)}">${esc(label)}</button></th>`;
+  const th = (k, label, cls = "") => `<th scope="col" class="${cls}" aria-sort="${s.sort === k ? (dir < 0 ? "descending" : "ascending") : "none"}"><button type="button" class="sort" data-sort="${k}" title="Sort by ${esc(ATTR_LABEL[k] || label)}">${esc(label)}</button></th>`;
   const teams = D.teams.map(t => `<option value="${t.abbr}" ${s.team === t.abbr ? "selected" : ""}>${t.abbr} · ${esc(t.name.replace("®", ""))}</option>`).join("");
   const g = v => v == null ? "<td></td>" : `<td class="g ${v >= 90 ? "g90" : v >= 80 ? "g80" : v < 65 ? "g-lo" : ""}">${v}</td>`;
   const statCols = goalieMode
@@ -321,7 +325,7 @@ views.player = id => {
     <section>
       ${p.overall != null ? `<p class="small muted ovr-note"><b>Overall ${p.overall}</b> as the game shows it today${partsText(p)}</p>` : ""}
       <h2>Grades <span class="muted small">as shown today${p.rating_source === "full" ? "; revised stored grades on file" : ""}</span></h2>
-      <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade" ${rs[k] != null && rs[k] !== r[k] ? `title="stored ${rs[k]}"` : ""}><span class="grade-k">${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}${rs[k] != null && rs[k] !== r[k] ? `<span class="grade-d">${r[k] - rs[k] > 0 ? "+" : ""}${r[k] - rs[k]}</span>` : ""}</span></div>`).join("")}</div>
+      <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade" ${rs[k] != null && rs[k] !== r[k] ? `title="stored ${rs[k]}"` : ""}><span class="grade-k"${attrTitle(k)}>${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}${rs[k] != null && rs[k] !== r[k] ? `<span class="grade-d">${r[k] - rs[k] > 0 ? "+" : ""}${r[k] - rs[k]}</span>` : ""}</span></div>`).join("")}</div>
       <p class="small muted" style="margin-top:.75rem">A grade carries a small figure where today's number differs from the stored grade: form, morale, facilities and venue move it day to day.</p>
       <h2>This season</h2>
       <div class="facts">

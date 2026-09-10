@@ -328,5 +328,9 @@ details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2);
 .prose.report h2:first-child { border-top: 0; padding-top: 0; margin-top: .5rem; }
 .report-recs { margin: .75rem 0 1rem; }
 .report-recs h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .35rem; }
-.plate-face img { object-position: center top; }
+.plate-face img { object-position: center center; }
+
+/* logos are wide or square marks: letterbox them, never squash */
+.mark img, .vs img, .tbl img.logo { object-fit: contain; }
+.gr-k[title], .grade-k[title] { cursor: help; text-decoration: underline dotted var(--rule); text-underline-offset: 3px; }
 
