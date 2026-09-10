@@ -118,7 +118,7 @@ a.plate:hover, button.plate:hover { border-color: var(--ink-2); text-decoration:
 .plate.is-struck .plate-name { text-decoration: line-through; text-decoration-color: var(--strike); text-decoration-thickness: 1.5px; }
 .plate.is-struck .plate-face img { filter: grayscale(1); opacity: .7; }
 .plate-num { font-family: var(--plate); font-weight: 600; font-size: 1.1rem; color: var(--ink-2); min-width: 1.6ch; text-align: right; }
-.plate-face { width: 36px; height: 54px; border-radius: 3px; object-fit: contain; object-position: center bottom; background: var(--rail); display: grid; place-items: center; font-family: var(--plate); font-weight: 600; color: var(--ink); font-size: .8rem; overflow: hidden; }
+.plate-face { width: 36px; height: 36px; border-radius: 3px; object-fit: contain; object-position: center bottom; background: var(--rail); display: grid; place-items: center; font-family: var(--plate); font-weight: 600; color: var(--ink); font-size: .8rem; overflow: hidden; }
 .plate-face img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; display: block; }
 .plate-body { min-width: 0; display: block; }
 .plate-name { display: block; font-family: var(--plate); font-weight: 600; font-size: 1.05rem; line-height: 1.1; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -128,10 +128,10 @@ a.plate:hover, button.plate:hover { border-color: var(--ink-2); text-decoration:
 .tag-out { color: var(--out); }
 .tag-rev { color: var(--leaf); }
 .plate--slot { grid-template-columns: auto auto 1fr; padding: .35rem .5rem; }
-.plate--slot .plate-face { width: 40px; height: 60px; }
+.plate--slot .plate-face { width: 40px; height: 40px; }
 .plate--card { grid-template-columns: auto auto 1fr auto; gap: 1rem; padding: 1rem; align-items: center; }
 .plate--card .plate-side { align-self: center; }
-.plate--card .plate-face { width: 96px; height: 144px; border-radius: 4px; font-size: 1.4rem; }
+.plate--card .plate-face { width: 112px; height: 112px; border-radius: 4px; font-size: 1.4rem; }
 .plate--card .plate-num { font-size: 2rem; }
 .plate--card .plate-name { font-size: 1.9rem; white-space: normal; }
 .plate--card .plate-sub { font-size: .95rem; white-space: normal; }
@@ -146,7 +146,7 @@ a.plate:hover, button.plate:hover { border-color: var(--ink-2); text-decoration:
 @container (max-width: 190px) {
   .plate--slot { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: .45rem .3rem; }
   .plate--slot .plate-num { position: absolute; top: .3rem; left: .4rem; font-size: .9rem; }
-  .plate--slot .plate-face { width: 48px; height: 72px; }
+  .plate--slot .plate-face { width: 48px; height: 48px; }
   .plate--slot .plate-name { white-space: normal; font-size: .95rem; line-height: 1.05; }
   .plate--slot .plate-sub { white-space: normal; }
   .plate--slot .plate-name::after { display: block; margin: .15rem 0 0; }
@@ -184,7 +184,7 @@ table.tbl { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .g80 { font-weight: 600; }
 .g-lo { color: var(--ink-2); }
 .tbl .name a { display: flex; gap: .5rem; align-items: center; min-height: 32px; }
-.tbl .name .plate-face { width: 24px; height: 36px; font-size: .6rem; }
+.tbl .name .plate-face { width: 26px; height: 26px; font-size: .65rem; }
 
 /* ---------- grades grid (player page) ---------- */
 .grades { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .4rem .9rem; }
@@ -318,7 +318,7 @@ details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2);
 
 /* players named in a report: a chip with face, name and overall */
 .chip-p { display: inline-flex; align-items: center; gap: .3rem; padding: .05rem .35rem .05rem .12rem; margin-right: -.1rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--rail); color: var(--ink); text-decoration: none; vertical-align: middle; line-height: 1.4; }
-.chip-p .plate-face { width: 18px; height: 27px; border-radius: 2px; font-size: .5rem; }
+.chip-p .plate-face { width: 20px; height: 20px; border-radius: 50%; font-size: .55rem; }
 .chip-p span { font-weight: 500; }
 .chip-p b { font-family: var(--plate); font-weight: 700; color: var(--leaf); }
 .chip-p:hover { border-color: var(--leaf); text-decoration: none; }
