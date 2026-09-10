@@ -35,7 +35,7 @@ let byId = new Map(), byTeam = new Map(), bySurname = new Map(), TOR = "TOR", te
 // ---------------------------------------------------------------- boot
 async function load() {
   const names = ["meta", "teams", "players", "schedule", "recommendations", "reports", "inbox"];
-  const res = await Promise.all(names.map(n => fetch(`data/${n}.json`).then(r => { if (!r.ok) throw new Error(`${n}.json ${r.status}`); return r.json(); })));
+  const res = await Promise.all(names.map(n => fetch(`data/${n}.json?b=${BUILD}`).then(r => { if (!r.ok) throw new Error(`${n}.json ${r.status}`); return r.json(); })));
   names.forEach((n, i) => D[n] = res[i]);
   TOR = D.meta.team;
   const mark = document.querySelector(".mark img"); if (mark) mark.src = asset(`logos/square/${TOR}.png`);
@@ -56,6 +56,7 @@ async function icons() {
 // ---------------------------------------------------------------- plate
 // Image files keep their names across reprocessing; the version query keeps a
 // browser from showing last week's crop.
+const BUILD = document.querySelector('meta[name="build"]')?.content || "0";
 const asset = path => `assets/${esc(path)}?${encodeURIComponent(D.meta?.asset_version || "0")}`;
 function face(p, eager = false) {
   const initials = (p.first_name?.[0] || "") + (p.last_name?.[0] || "");
