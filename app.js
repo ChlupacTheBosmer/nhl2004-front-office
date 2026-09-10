@@ -22,6 +22,7 @@ const UNITS = [
 const POS_LABEL = { LW: "Left wing", C: "Centre", RW: "Right wing", LD: "Left defence", RD: "Right defence", G1: "Starter", G2: "Backup", D: "Defence", G: "Goalie" };
 const KIND_LABEL = { line_change: "Line change", ice_time: "Ice time", goalie: "Goalie", roster_gap: "Roster gap", development: "Development", no_change: "No change", trade: "Trade", target: "Target", renewal: "Renewal", release: "Release", signing: "Signing", draft: "Draft" };
 const AGENT_LABEL = { coach: "Coach", gm_assistant: "GM Assistant" };
+const OUTLET_LABEL = { "league-wire": "League Wire", "plus-minus": "Plus/Minus", "home-ice-network": "Home Ice Network", "queen-city-telegram": "Queen City Telegram", "slot-report": "The Slot Report", "hot-stove": "The Hot Stove", "hockey-gazette": "The Hockey Gazette", "prospect-file": "The Prospect File", "penalty-box": "The Penalty Box", "rinkside": "Rinkside" };
 // What each grade code means, for the tooltip on every code the page shows.
 const ATTR_LABEL = { SPEE: "speed", ACCE: "acceleration", AGIL: "agility", BALA: "balance", ENDU: "endurance", CHKG: "checking", TOUG: "toughness", FIGH: "fighting", AGGR: "aggression", HERO: "hero", ACCU: "shot accuracy", SHPW: "shot power", PASS: "passing", PUCK: "puck control", DEKG: "deking", FACE: "faceoffs", PENA: "penalty proneness", INJU: "injury proneness", POTE: "potential", PRES: "prestige", ODBI: "offence / defence bias", PCBI: "pass / carry bias", SPBI: "shoot / pass bias",
   GSH_: "glove high", GSL_: "glove low", SSH_: "stick high", SSL_: "stick low", "5HOL": "five-hole", BRKA: "breakaways", REBC: "rebound control", SREC: "recovery", INTE: "intensity", POKE: "poke check", PADL: "paddle down", POSI: "positioning", FLOP: "floppiness", STYL: "style (stand-up / butterfly)", CONS: "consistency", OVR: "overall, as the game shows it today" };
@@ -346,6 +347,8 @@ views.player = id => {
       ${slotNames ? `<p class="small muted" style="margin-top:.75rem">Units: ${esc(slotNames)}</p>` : ""}
     </section>
     <section>
+      ${p.news?.length ? `<h2>In the news <span class="muted small">${p.news.length} stor${p.news.length === 1 ? "y" : "ies"}</span></h2>
+      <ul class="newslist">${p.news.map(n => `<li><a href="${esc(n.url)}">${esc(n.headline)}</a><span class="muted small">${esc(OUTLET_LABEL[n.outlet] || n.outlet)} · ${esc(fmtDate(n.date))}</span></li>`).join("")}</ul>` : ""}
       <h2>Staff notes <span class="muted small">${notes.length ? `${notes.length} about him · one line each, open one for the reasoning` : ""}</span></h2>
       <div class="panel divide notes">${recent.length ? recent.map(x => noteHtml(x, p)).join("") : `<div class="empty">Nothing on file for him yet.</div>`}</div>
       ${older.length ? `<h3 class="notes-h">Earlier</h3><div class="panel divide notes">${older.map(x => noteHtml(x, p)).join("")}</div>` : ""}
