@@ -25,6 +25,9 @@ const AGENT_LABEL = { coach: "Coach", gm_assistant: "GM Assistant" };
 const OUTLET_LABEL = { "league-wire": "League Wire", "plus-minus": "Plus/Minus", "home-ice-network": "Home Ice Network", "queen-city-telegram": "Queen City Telegram", "slot-report": "The Slot Report", "hot-stove": "The Hot Stove", "hockey-gazette": "The Hockey Gazette", "prospect-file": "The Prospect File", "penalty-box": "The Penalty Box", "rinkside": "Rinkside" };
 // What each grade code means, for the tooltip on every code the page shows.
 function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; }
+// The icons the game draws beside a player's name. The form marker is NOT an injury.
+const MARK_GLYPH = { flame: "\u{1F525}", snowflake: "\u2744\uFE0F", thermometer: "\u{1F321}\uFE0F", zzz: "\u{1F4A4}", plaster: "\u{1FA79}" };
+const BADGE_GLYPH = { "winged skate": "\u26F8\uFE0F", target: "\u{1F3AF}", "hockey stick": "\u{1F3D2}", hammer: "\u{1F528}" };
 const ATTR_LABEL = { SPEE: "speed", ACCE: "acceleration", AGIL: "agility", BALA: "balance", ENDU: "endurance", CHKG: "checking", TOUG: "toughness", FIGH: "fighting", AGGR: "aggression", HERO: "hero", ACCU: "shot accuracy", SHPW: "shot power", PASS: "passing", PUCK: "puck control", DEKG: "deking", FACE: "faceoffs", PENA: "penalty proneness", INJU: "injury proneness", POTE: "potential", PRES: "prestige", ODBI: "offence / defence bias", PCBI: "pass / carry bias", SPBI: "shoot / pass bias",
   GSH_: "glove high", GSL_: "glove low", SSH_: "stick high", SSL_: "stick low", "5HOL": "five-hole", BRKA: "breakaways", REBC: "rebound control", SREC: "recovery", INTE: "intensity", POKE: "poke check", PADL: "paddle down", POSI: "positioning", FLOP: "floppiness", STYL: "style (stand-up / butterfly)", CONS: "consistency", OVR: "overall, as the game shows it today" };
 const attrTitle = k => ATTR_LABEL[k] ? ` title="${esc(ATTR_LABEL[k])}"` : "";
@@ -90,6 +93,8 @@ function plate(p, { size = "row", state = "", sub, side, note, eager = false, he
   if (state.includes("is-proposed")) status.push("proposed");
   if (state.includes("is-selected")) status.push("flagged");
   const tags = (p.injury?.out ? `<span class="tag tag-out">out${p.injury.part ? " (" + esc(p.injury.part) + ")" : ""} to ${esc(fmtDate(p.injury.return_date))}</span>` : "")
+    + (p.marker ? `<span class="tag tag-mark tag-${esc(p.marker.icon)}" title="${esc(p.marker.note)}">${MARK_GLYPH[p.marker.icon] || ""} ${esc(p.marker.label)}</span>` : "")
+    + (p.badges || []).map(b => `<span class="tag tag-badge" title="a displayed rating of 90 or better">${BADGE_GLYPH[b] || ""} ${esc(b)}</span>`).join("")
     + (!p.dressed ? `<span class="tag tag-out">scratched</span>` : "")
     + (p.rating_source === "full" ? `<span class="tag tag-rev" title="revised grades on file">revised</span>` : "");
   const subline = sub ?? `${esc(p.position)} · ${p.age} · ${esc(p.team)}`;
@@ -343,7 +348,7 @@ views.player = id => {
       <h2>Contract and status</h2>
       <div class="facts">
         ${fact(fmtMoney(p.salary), "salary")}${fact(p.contract_years, "years left")}${fact(p.morale, "morale")}${fact(p.is_rookie ? "yes" : "no", "rookie")}
-        ${fact(p.dressed ? "dressed" : "scratched", "tonight")}${fact(p.injury ? (p.injury.out ? (p.injury.part ? p.injury.part + ", out to " : "out to ") + fmtDate(p.injury.return_date) : "fit, back " + fmtDate(p.injury.return_date)) : "fit", "health")}${p.draft_year && p.draft_pick ? fact(`${p.draft_year}, ${p.draft_pick}${ordinal(p.draft_pick)} overall (round ${Math.floor((p.draft_pick - 1) / 30) + 1})`, "drafted") : ""}${p.trophies ? fact(esc(p.trophies), "last season") : ""}
+        ${fact(p.marker ? p.marker.label : null, "form")}${(p.badges || []).length ? fact(p.badges.join(", "), "badges") : ""}${fact(p.dressed ? "dressed" : "scratched", "tonight")}${fact(p.injury ? (p.injury.out ? (p.injury.part ? p.injury.part + ", out to " : "out to ") + fmtDate(p.injury.return_date) : "fit, back " + fmtDate(p.injury.return_date)) : "fit", "health")}${p.draft_year && p.draft_pick ? fact(`${p.draft_year}, ${p.draft_pick}${ordinal(p.draft_pick)} overall (round ${Math.floor((p.draft_pick - 1) / 30) + 1})`, "drafted") : ""}${p.trophies ? fact(esc(p.trophies), "last season") : ""}
       </div>
       ${slotNames ? `<p class="small muted" style="margin-top:.75rem">Units: ${esc(slotNames)}</p>` : ""}
     </section>

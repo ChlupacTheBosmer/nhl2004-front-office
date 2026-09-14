@@ -126,6 +126,14 @@ a.plate:hover, button.plate:hover { border-color: var(--ink-2); text-decoration:
 .plate-side { display: block; font-size: .78rem; color: var(--ink-2); text-align: right; white-space: nowrap; }
 .plate .tag { font-size: .7rem; padding: 0 .3rem; border: 1px solid currentColor; border-radius: 3px; margin-left: .3rem; }
 .tag-out { color: var(--out); }
+/* the icons beside a player's name: form or fitness, and the skill badges. None of these is an injury. */
+.tag-mark, .tag-badge { opacity: .92; }
+.tag-flame { color: #d9612c; }
+.tag-snowflake { color: #5aa7d6; }
+.tag-thermometer { color: #c9a227; }
+.tag-zzz { color: #8b8b8b; }
+.tag-plaster { color: #b98a5a; }
+.tag-badge { color: inherit; opacity: .72; }
 .tag-rev { color: var(--leaf); }
 .plate--slot { grid-template-columns: auto auto 1fr; padding: .35rem .5rem; }
 .plate--slot .plate-face { width: 40px; height: 40px; }
