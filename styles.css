@@ -348,3 +348,10 @@ details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2);
 .newslist li:first-child { border-top: 0; }
 .newslist a { font-weight: 500; text-decoration: none; }
 
+
+/* Owed: the job column is a sentence, not a statistic, so it wraps and takes
+   the width the others do not need. The rest are short words rather than
+   figures, so they need air between them that a stat table does not. */
+.tbl.owed th, .tbl.owed td { padding: .5rem .85rem; }
+.tbl.owed td.job { white-space: normal; min-width: 22rem; max-width: 46rem; }
+.tbl.owed td.job .small { color: var(--ink-2); display: block; margin-top: .15rem; }

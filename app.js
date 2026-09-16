@@ -39,7 +39,7 @@ let byId = new Map(), byTeam = new Map(), bySurname = new Map(), TOR = "TOR", te
 
 // ---------------------------------------------------------------- boot
 async function load() {
-  const names = ["meta", "teams", "players", "schedule", "recommendations", "reports", "inbox"];
+  const names = ["meta", "teams", "players", "schedule", "recommendations", "reports", "inbox", "owed"];
   const res = await Promise.all(names.map(n => fetch(`data/${n}.json?b=${BUILD}`).then(r => { if (!r.ok) throw new Error(`${n}.json ${r.status}`); return r.json(); })));
   names.forEach((n, i) => D[n] = res[i]);
   TOR = D.meta.team;
@@ -560,6 +560,43 @@ function bindTheme() {
   btn.addEventListener("click", () => { const next = isDark() ? "light" : "dark"; try { localStorage.setItem("theme", next); } catch {} apply(next); });
 }
 
+// ------------------------------------------------------------------- owed
+// What each agent undertook to do, or was told to do, and whether he did it.
+// The page exists for one question -- has he actually delivered? -- so the
+// count and the date of the last delivery come before the description.
+views.owed = () => {
+  const all = D.owed || [];
+  const open = all.filter(x => x.state === "open");
+  const closed = all.filter(x => x.state !== "open");
+  const who = a => a === "coach" ? "Coach" : "GM Assistant";
+  const cadence = x => x.cadence === "every_snapshot" ? "every game"
+    : x.cadence === "by_date" ? `by ${x.due || "?"}` : "one off";
+  const row = x => {
+    const late = x.state === "open" && x.times === 0;
+    return `<tr>
+      <td>#${x.id}</td>
+      <td class="l">${who(x.agent)}</td>
+      <td class="l job">${esc(x.what || "")}
+        <div class="small">${x.origin === "promised" ? "he promised it" : "you asked for it"}
+          · opened ${x.opened_on || "?"} · ${cadence(x)}</div></td>
+      <td>${x.times}</td>
+      <td>${x.last_on || (late ? `<strong>never</strong>` : "\u2014")}</td>
+      <td class="l">${x.state}</td></tr>`;
+  };
+  const table = rows => rows.length ? `<div class="tbl-wrap"><table class="tbl owed">
+      <thead><tr><th></th><th class="l">Who</th><th class="l">Job</th>
+      <th>Delivered</th><th>Last done</th><th class="l">State</th></tr></thead>
+      <tbody>${rows.map(row).join("")}</tbody></table></div>`
+    : `<div class="empty">Nothing here.</div>`;
+  return `<h1>Owed</h1>
+    <p class="small">Work the agents took on, or you gave them. Assign one in
+    Telegram with <code>/task</code>, call it off with
+    <code>/drop &lt;n&gt;</code>, or ask either of them
+    <code>/owed</code>.</p>
+    <section class="note"><h2>Open (${open.length})</h2>${table(open)}</section>
+    ${closed.length ? `<section class="note"><h2>Finished and dropped</h2>${table(closed)}</section>` : ""}`;
+};
+
 // ---------------------------------------------------------------- router
 const scrollMemory = new Map();
 let lastKey = null;
@@ -574,7 +611,7 @@ function render(opts = {}) {
   document.querySelectorAll(".tabs a").forEach(a => a.dataset.route === route ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   if (route === "roster") bindRoster(root);
   if (opts.keepFocus) { const el = root.querySelector(opts.keepFocus); if (el) { el.focus(); el.setSelectionRange?.(el.value.length, el.value.length); } }
-  const titles = { dashboard: "Today", lines: "Lines", roster: "Roster", player: "Player", proposals: "Proposals", inbox: "Inbox", reports: "Reports", missing: "Not found" };
+  const titles = { dashboard: "Today", lines: "Lines", roster: "Roster", player: "Player", proposals: "Proposals", inbox: "Inbox", reports: "Reports", owed: "Owed", missing: "Not found" };
   document.title = `${titles[route] || "Front Office"} · Leafs Front Office`;
   const key = route === "roster" ? "roster" : raw;
   if (!opts.keepFocus) {
