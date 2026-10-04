@@ -261,7 +261,28 @@ views.lines = () => `<h1>Toronto lines</h1><p class="muted">As set in the game a
 
 const SKATER_COLS = ["SPEE", "ACCE", "AGIL", "BALA", "ENDU", "CHKG", "TOUG", "FIGH", "AGGR", "HERO", "ACCU", "SHPW", "PASS", "PUCK", "DEKG", "FACE", "PENA", "INJU", "POTE"];
 const GOALIE_COLS = ["GSH_", "GSL_", "SSH_", "SSL_", "5HOL", "BRKA", "REBC", "SREC", "INTE", "POKE", "AGIL", "SPEE", "ENDU", "POTE"];
-const ROSTER_DEFAULT = { team: "", pos: "", tor: "1", sort: "points", dir: "-1", q: "" };
+// Advanced filters live in the same URL state as the basic ones, so a filtered
+// view stays bookmarkable: amin/amax age, yrs = contract years at least, ovr =
+// overall at least, sal = salary at most ($M), a1..a3/v1..v3 = "attribute at
+// least" clauses, more = whether the second row is open.
+const ROSTER_DEFAULT = { team: "", pos: "", tor: "1", sort: "points", dir: "-1", q: "",
+  more: "0", amin: "", amax: "", yrs: "", ovr: "", sal: "", a1: "", v1: "", a2: "", v2: "", a3: "", v3: "" };
+const ADV_KEYS = ["amin", "amax", "yrs", "ovr", "sal", "a1", "a2", "a3"];
+function advancedCount(s) { return ADV_KEYS.filter(k => s[k] !== "" && (!k.startsWith("a") || k.startsWith("am") || s["v" + k[1]] !== "")).length; }
+function passesAdvanced(p, s) {
+  const n = v => v === "" ? null : Number(v);
+  const amin = n(s.amin), amax = n(s.amax), yrs = n(s.yrs), ovr = n(s.ovr), sal = n(s.sal);
+  if (amin != null && !(p.age >= amin)) return false;
+  if (amax != null && !(p.age <= amax)) return false;
+  if (yrs != null && !((p.contract_years ?? 0) >= yrs)) return false;
+  if (ovr != null && !((p.overall ?? 0) >= ovr)) return false;
+  if (sal != null && !((p.salary ?? 0) <= sal * 1e6)) return false;
+  for (const i of [1, 2, 3]) {
+    const k = s["a" + i], v = n(s["v" + i]);
+    if (k && v != null && !(((p.ratings || {})[k] ?? -1) >= v)) return false;
+  }
+  return true;
+}
 function rosterState() {
   const q = new URLSearchParams((location.hash.split("?")[1] || ""));
   const s = { ...ROSTER_DEFAULT };
@@ -273,7 +294,10 @@ function setRoster(patch, { replace = false } = {}) {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(s)) if (v !== ROSTER_DEFAULT[k]) q.set(k, v);
   const h = "#roster" + (q.toString() ? "?" + q.toString() : "");
-  if (replace) { history.replaceState(null, "", h); render({ keepFocus: "[data-q]" }); }
+  if (replace) {
+    const el = document.activeElement, sel = el?.dataset?.adv ? `[data-adv="${el.dataset.adv}"]` : "[data-q]";
+    history.replaceState(null, "", h); render({ keepFocus: sel });
+  }
   else location.hash = h;
 }
 views.roster = () => {
@@ -282,7 +306,8 @@ views.roster = () => {
   const cols = goalieMode ? GOALIE_COLS : SKATER_COLS;
   const val = (p, k) => k in p ? p[k] : (p.ratings || {})[k];
   const dir = Number(s.dir);
-  let rows = D.players.filter(p => (s.tor !== "1" || p.team === TOR) && (!s.team || p.team === s.team) && (!s.pos || p.position === s.pos) && (!s.q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(s.q.toLowerCase())));
+  let rows = D.players.filter(p => (s.tor !== "1" || p.team === TOR) && (!s.team || p.team === s.team) && (!s.pos || p.position === s.pos) && (!s.q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(s.q.toLowerCase())) && passesAdvanced(p, s));
+  const picked = new Set(basket());
   rows.sort((a, b) => { const x = val(a, s.sort), y = val(b, s.sort); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * dir || a.last_name.localeCompare(b.last_name); });
   const th = (k, label, cls = "") => `<th scope="col" class="${cls}" aria-sort="${s.sort === k ? (dir < 0 ? "descending" : "ascending") : "none"}"><button type="button" class="sort" data-sort="${k}" title="Sort by ${esc(ATTR_LABEL[k] || label)}">${esc(label)}</button></th>`;
   const teams = D.teams.map(t => `<option value="${t.abbr}" ${s.team === t.abbr ? "selected" : ""}>${t.abbr} · ${esc(t.name.replace("®", ""))}</option>`).join("");
@@ -291,18 +316,28 @@ views.roster = () => {
     ? [["gp", "GP"], ["wins", "W"], ["losses", "L"], ["gaa", "GAA"], ["sv_pct", "SV%"], ["morale", "Morale"], ["salary", "Salary"], ["contract_years", "Yrs"]]
     : [["gp", "GP"], ["goals", "G"], ["assists", "A"], ["points", "P"], ["mpg", "MPG"], ["fo_pct", "FO%"], ["morale", "Morale"], ["salary", "Salary"], ["contract_years", "Yrs"]];
   statCols.unshift(["overall", "OVR"]);
-  const ncols = 4 + statCols.length + cols.length;
+  const ncols = 5 + statCols.length + cols.length;
   return `<h1>Roster</h1>
   <div class="filters">
     <button class="chip" type="button" data-tor aria-pressed="${s.tor === "1"}">Toronto only</button>
     <select data-team aria-label="Team"><option value="">All teams</option>${teams}</select>
     <select data-pos aria-label="Position"><option value="">All positions</option>${["C", "LW", "RW", "D", "G"].map(p => `<option ${s.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>
     <input data-q type="search" placeholder="Filter by name" value="${esc(s.q)}" aria-label="Filter by name">
+    <button class="chip" type="button" data-more aria-expanded="${s.more === "1"}" aria-controls="adv">More filters${advancedCount(s) ? ` (${advancedCount(s)})` : ""}</button>
     <span class="muted small" role="status">${rows.length} player${rows.length === 1 ? "" : "s"}</span>
   </div>
+  <div class="filters adv" id="adv" ${s.more === "1" ? "" : "hidden"}>
+    <label>Age <input data-adv="amin" type="number" min="17" max="45" placeholder="from" value="${esc(s.amin)}" aria-label="Age from"> to <input data-adv="amax" type="number" min="17" max="45" placeholder="to" value="${esc(s.amax)}" aria-label="Age to"></label>
+    <label>Contract <input data-adv="yrs" type="number" min="0" max="10" placeholder="yrs" value="${esc(s.yrs)}" aria-label="Contract years at least"> yrs or more</label>
+    <label>OVR <input data-adv="ovr" type="number" min="50" max="99" placeholder="min" value="${esc(s.ovr)}" aria-label="Overall at least"> or more</label>
+    <label>Salary <input data-adv="sal" type="number" min="0" max="15" step="0.1" placeholder="max" value="${esc(s.sal)}" aria-label="Salary at most, millions"> $M or less</label>
+    ${[1, 2, 3].map(i => `<label class="adv-attr"><select data-adv="a${i}" aria-label="Attribute ${i}"><option value="">attribute</option>${(goalieMode ? D.meta.goalie_keys : D.meta.skater_keys).map(k => `<option value="${k}" ${s["a" + i] === k ? "selected" : ""}>${esc(ATTR_LABEL[k] || k)}</option>`).join("")}</select> &ge; <input data-adv="v${i}" type="number" min="50" max="99" placeholder="50" value="${esc(s["v" + i])}" aria-label="Attribute ${i} at least"></label>`).join("")}
+    <button class="chip" type="button" data-clear>Clear</button>
+  </div>
   <div class="tbl-wrap"><table class="tbl">
-    <thead><tr>${th("last_name", "Player", "l")}${th("position", "Pos")}${th("age", "Age")}${th("team", "Team")}${statCols.map(([k, l]) => th(k, l)).join("")}${cols.map(k => th(k, k.replace(/_/g, ""))).join("")}</tr></thead>
+    <thead><tr><th scope="col" class="pick" title="Add to compare"><span class="sr-only">Compare</span></th>${th("last_name", "Player", "l")}${th("position", "Pos")}${th("age", "Age")}${th("team", "Team")}${statCols.map(([k, l]) => th(k, l)).join("")}${cols.map(k => th(k, k.replace(/_/g, ""))).join("")}</tr></thead>
     <tbody>${rows.length ? rows.map(p => `<tr>
+      <td class="pick"><input type="checkbox" data-pick="${p.player_id}" ${picked.has(p.player_id) ? "checked" : ""} aria-label="Compare ${esc(p.first_name)} ${esc(p.last_name)}"></td>
       <td class="name l"><a href="#player/${p.player_id}">${face(p)}<span>${esc(p.first_name)} ${esc(p.last_name)}${p.rating_source === "full" ? ' <span class="tag tag-rev">revised</span>' : ""}${p.injury?.out ? ' <span class="tag tag-out">out</span>' : ""}</span></a></td>
       <td>${esc(p.position)}</td><td>${p.age ?? ""}</td><td>${esc(p.team)}</td>
       ${statCols.map(([k]) => k === "overall" ? g(p.overall) : `<td>${k === "salary" ? fmtMoney(p[k]) : (p[k] ?? "")}</td>`).join("")}
@@ -315,6 +350,13 @@ function bindRoster(root) {
   root.querySelector("[data-team]")?.addEventListener("change", e => setRoster({ team: e.target.value, tor: "0" }));
   root.querySelector("[data-pos]")?.addEventListener("change", e => { const pos = e.target.value; setRoster({ pos, sort: pos === "G" ? "wins" : "points", dir: "-1" }); });
   root.querySelector("[data-q]")?.addEventListener("input", e => setRoster({ q: e.target.value }, { replace: true }));
+  root.querySelector("[data-more]")?.addEventListener("click", () => setRoster({ more: rosterState().more === "1" ? "0" : "1" }, { replace: true }));
+  root.querySelector("[data-clear]")?.addEventListener("click", () => { const z = {}; for (const k of Object.keys(ROSTER_DEFAULT)) if (!["team", "pos", "tor", "sort", "dir", "q", "more"].includes(k)) z[k] = ""; setRoster(z); });
+  root.querySelectorAll("[data-adv]").forEach(el => el.addEventListener(el.tagName === "SELECT" ? "change" : "input", e => setRoster({ [el.dataset.adv]: e.target.value }, { replace: true })));
+  root.querySelectorAll("[data-pick]").forEach(cb => cb.addEventListener("change", e => {
+    const ok = togglePick(Number(cb.dataset.pick), e.target.checked);
+    if (!ok) { e.target.checked = false; root.querySelector("[role=status]").textContent = `The basket holds ${BASKET_MAX}; remove one on the Compare tab first.`; }
+  }));
   root.querySelectorAll("button.sort").forEach(b => b.addEventListener("click", () => { const s = rosterState(), k = b.dataset.sort; if (s.sort === k) setRoster({ dir: String(-Number(s.dir)) }); else setRoster({ sort: k, dir: ["last_name", "position", "team"].includes(k) ? "1" : "-1" }); }));
 }
 
@@ -331,7 +373,9 @@ views.player = id => {
   const older = about.filter(n => latestBy.get(n.agent) !== n.date);
   const notes = about;
   const slotNames = p.slots.filter(s => !/^[HX]/.test(s.code)).map(s => ({ even_strength: "Line", power_play: "PP", penalty_kill: "PK", four_on_four: "4v4", five_on_three: "5v3", goalie: "G", shootout: "SO" }[s.unit] ?? s.unit) + (s.unit_no ?? "") + " " + (s.position || "")).join(" · ");
+  const inBasket = basket().includes(p.player_id);
   return `
+  <p class="cmp-cta"><button type="button" class="chip" data-pick-one="${p.player_id}" aria-pressed="${inBasket}">${inBasket ? "In the basket · remove" : "Add to compare"}</button> <a class="small muted" href="#compare">Compare tab${basket().length ? ` (${basket().length})` : ""}</a></p>
   <div class="panel">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${esc(t?.name.replace("®", "") || p.team)}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: ovrBig(p) })}</div>
   <div class="grid-2" style="margin-top:1rem">
     <section>
@@ -597,6 +641,160 @@ views.owed = () => {
     ${closed.length ? `<section class="note"><h2>Finished and dropped</h2>${table(closed)}</section>` : ""}`;
 };
 
+// ------------------------------------------------------------------ basket
+// Players picked for comparison, across any number of searches. Kept in the
+// browser (same place as the theme), so it survives reloads; the cap exists
+// because a radar with more than eight polygons stops saying anything.
+const BASKET_MAX = 8;
+function basket() { try { return (JSON.parse(localStorage.getItem("basket") || "[]") || []).filter(id => byId.has(id)).slice(0, BASKET_MAX); } catch { return []; } }
+function setBasket(ids) { try { localStorage.setItem("basket", JSON.stringify(ids)); } catch {} refreshBasketTab(); }
+function togglePick(id, on) {
+  const ids = basket();
+  if (on) { if (ids.includes(id)) return true; if (ids.length >= BASKET_MAX) return false; setBasket([...ids, id]); return true; }
+  setBasket(ids.filter(x => x !== id)); return true;
+}
+function refreshBasketTab() {
+  const a = document.querySelector('.tabs a[data-route="compare"]'); if (!a) return;
+  const n = basket().length;
+  a.innerHTML = `Compare${n ? ` <span class="count">${n}</span>` : ""}`;
+}
+
+// --------------------------------------------------------------- compare
+// One validated categorical palette, fixed order, never cycled: a player keeps
+// his colour while he is in the basket whatever else is added or removed.
+const SERIES = 8;
+function seriesColor(i) { return `var(--s${(i % SERIES) + 1})`; }
+// Attributes every player in the basket actually has. A skater and a goalie
+// share a few; everything else would be a blank row.
+function sharedKeys(ps) {
+  if (!ps.length) return [];
+  const allG = ps.every(p => p.position === "G"), allS = ps.every(p => p.position !== "G");
+  const order = allG ? D.meta.goalie_keys : allS ? D.meta.skater_keys : D.meta.skater_keys.filter(k => D.meta.goalie_keys.includes(k));
+  return order.filter(k => ps.every(p => (p.ratings || {})[k] != null));
+}
+const AXES_DEFAULT = { skater: ["SPEE", "SHPW", "ACCU", "PASS", "CHKG", "TOUG"], goalie: ["GSH_", "GSL_", "5HOL", "REBC", "AGIL", "SREC"] };
+function axesState(ps) {
+  const q = new URLSearchParams(location.hash.split("?")[1] || "");
+  const shared = sharedKeys(ps);
+  let axes = (q.get("ax") || "").split(",").filter(k => shared.includes(k));
+  if (axes.length < 3) axes = (ps.every(p => p.position === "G") ? AXES_DEFAULT.goalie : AXES_DEFAULT.skater).filter(k => shared.includes(k));
+  if (axes.length < 3) axes = shared.slice(0, 6);
+  return axes.slice(0, 8);
+}
+function setAxes(axes) {
+  const q = new URLSearchParams(location.hash.split("?")[1] || "");
+  q.set("ax", axes.join(","));
+  history.replaceState(null, "", "#compare?" + q.toString()); render({ keepFocus: "[data-ax]:focus" });
+}
+const fullName = p => `${p.first_name} ${p.last_name}`;
+
+function radar(ps, axes) {
+  // 50..99 is the game's own scale, so 50 is the centre and 99 the rim; the
+  // rings are at the grade thresholds the roster already colours by.
+  const W = 420, cx = W / 2, cy = W / 2, R = 150, lo = 50, hi = 99;
+  const n = axes.length, ang = i => -Math.PI / 2 + (2 * Math.PI * i) / n;
+  const rad = v => R * Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  const pt = (i, v) => [cx + rad(v) * Math.cos(ang(i)), cy + rad(v) * Math.sin(ang(i))];
+  const ring = v => axes.map((_, i) => pt(i, v).map(x => x.toFixed(1)).join(",")).join(" ");
+  const rings = [60, 70, 80, 90, 99].map(v => `<polygon points="${ring(v)}" class="rr${v === 99 ? " rr-rim" : ""}"></polygon>`).join("");
+  const spokes = axes.map((k, i) => { const [x, y] = pt(i, hi); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rs"></line>`; }).join("");
+  const labels = axes.map((k, i) => { const [x, y] = pt(i, hi + 9); const a = ang(i); const anchor = Math.abs(Math.cos(a)) < .2 ? "middle" : Math.cos(a) > 0 ? "start" : "end"; return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${anchor}" class="rl">${esc(ATTR_LABEL[k] || k)}</text>`; }).join("");
+  const polys = ps.map((p, i) => {
+    const vals = axes.map(k => (p.ratings || {})[k] ?? lo);
+    const pts = vals.map((v, j) => pt(j, v));
+    const dots = pts.map(([x, y], j) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" style="fill:${seriesColor(i)}" class="rd"><title>${esc(fullName(p))} · ${esc(ATTR_LABEL[axes[j]] || axes[j])} ${vals[j]}</title></circle>`).join("");
+    const j = i % n, a = ang(j), [tx, ty] = pts[j];
+    const inward = Math.abs(Math.cos(a)) < .2 ? "middle" : Math.cos(a) > 0 ? "end" : "start";
+    const tag = ps.length <= 4 ? `<text x="${(tx - 14 * Math.cos(a)).toFixed(1)}" y="${(ty - 14 * Math.sin(a) + 4).toFixed(1)}" text-anchor="${inward}" class="rt">${esc(p.last_name)}</text>` : "";
+    return `<g class="rp"><polygon points="${pts.map(q => q.map(x => x.toFixed(1)).join(",")).join(" ")}" style="stroke:${seriesColor(i)};fill:${seriesColor(i)}"></polygon>${dots}${tag}</g>`;
+  }).join("");
+  const scale = [60, 70, 80, 90].map(v => { const [x, y] = pt(0, v); return `<text x="${(x + 5).toFixed(1)}" y="${(y + 3).toFixed(1)}" class="rv">${v}</text>`; }).join("");
+  return `<svg class="radar" viewBox="0 0 ${W} ${W}" role="img" aria-label="Radar of ${axes.length} attributes for ${ps.length} players">${rings}${spokes}${scale}${polys}${labels}</svg>`;
+}
+
+function bars(ps, axes) {
+  const lo = 50, hi = 99;
+  return `<div class="strips">${axes.map(k => {
+    const vals = ps.map(p => (p.ratings || {})[k]);
+    const best = Math.max(...vals.filter(v => v != null));
+    return `<div class="strip"><div class="strip-k">${esc(ATTR_LABEL[k] || k)}</div><div class="strip-rows">${ps.map((p, i) => {
+      const v = vals[i]; const w = v == null ? 0 : Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+      return `<div class="strip-row ${v === best ? "best" : ""}" title="${esc(fullName(p))} ${v ?? "—"}"><span class="strip-n">${esc(p.last_name)}</span><span class="strip-bar"><span style="width:${w.toFixed(1)}%;background:${seriesColor(i)}"></span></span><span class="strip-v">${v ?? "—"}</span></div>`;
+    }).join("")}</div></div>`;
+  }).join("")}</div>`;
+}
+
+function whoWins(ps, axes) {
+  const rows = ps.map((p, i) => {
+    const vals = axes.map(k => (p.ratings || {})[k]).filter(v => v != null);
+    const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    const leads = axes.filter(k => { const v = (p.ratings || {})[k]; return v != null && v === Math.max(...ps.map(q => (q.ratings || {})[k] ?? -1)); }).length;
+    return { p, i, mean, leads };
+  }).sort((a, b) => (b.mean ?? -1) - (a.mean ?? -1));
+  return `<ol class="wins">${rows.map(({ p, i, mean, leads }) => `<li><span class="sw" style="background:${seriesColor(i)}"></span><a href="#player/${p.player_id}">${esc(fullName(p))}</a><span class="muted">leads ${leads} of ${axes.length} · mean ${mean == null ? "—" : mean.toFixed(1)} · OVR ${p.overall ?? "—"}</span></li>`).join("")}</ol>`;
+}
+
+function compareTable(ps) {
+  const keys = sharedKeys(ps);
+  const allG = ps.every(p => p.position === "G");
+  const td = (f, { best = false, money = false } = {}) => {
+    const vals = ps.map(f); const nums = vals.filter(v => typeof v === "number");
+    const top = best && nums.length > 1 ? Math.max(...nums) : null;
+    return vals.map(v => `<td class="${top != null && v === top ? "best" : ""}">${v == null ? "—" : money ? fmtMoney(v) : esc(v)}</td>`).join("");
+  };
+  const row = (label, f, o) => `<tr><th scope="row">${esc(label)}</th>${td(f, o)}</tr>`;
+  const group = (label, body) => `<tr class="grp"><th scope="rowgroup" colspan="${ps.length + 1}">${esc(label)}</th></tr>${body}`;
+  const season = allG
+    ? row("Games", p => p.gp) + row("Record", p => `${p.wins ?? 0}-${p.losses ?? 0}`) + row("GAA", p => p.gaa) + row("Save %", p => p.sv_pct) + row("Shutouts", p => p.shutouts, { best: true })
+    : row("Games", p => p.gp) + row("Goals", p => p.goals, { best: true }) + row("Assists", p => p.assists, { best: true }) + row("Points", p => p.points, { best: true }) + row("Min / game", p => p.mpg, { best: true }) + row("PIM", p => p.pim);
+  return `<div class="tbl-wrap cmp-wrap"><table class="tbl cmp">
+    <thead><tr><th scope="col" class="l">&nbsp;</th>${ps.map((p, i) => `<th scope="col"><span class="sw" style="background:${seriesColor(i)}"></span><a href="#player/${p.player_id}">${esc(fullName(p))}</a><button type="button" class="x" data-unpick="${p.player_id}" aria-label="Remove ${esc(fullName(p))}">×</button></th>`).join("")}</tr></thead>
+    <tbody>
+      ${group("Profile", row("Position", p => p.position) + row("Age", p => p.age) + row("Team", p => p.team) + row("Height", p => p.height_in ? `${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : null) + row("Weight", p => p.weight_lb ? `${p.weight_lb} lb` : null) + row("Shoots", p => p.handedness))}
+      ${group("Overall", row("OVR today", p => p.overall, { best: true }) + row("Potential", p => (p.ratings || {}).POTE, { best: true }))}
+      ${group("Contract", row("Salary", p => p.salary, { money: true }) + row("Years left", p => p.contract_years, { best: true }) + row("Morale", p => p.morale, { best: true }))}
+      ${group("This season", season)}
+      ${group("Grades, as shown today", keys.map(k => row(ATTR_LABEL[k] || k, p => (p.ratings || {})[k], { best: true })).join(""))}
+    </tbody></table></div>`;
+}
+
+views.compare = () => {
+  const ps = basket().map(id => byId.get(id)).filter(Boolean);
+  if (!ps.length) return `<h1>Compare</h1><div class="panel"><div class="empty">Nothing in the basket. Tick players on the <a href="#roster">Roster</a>, or use "Compare" on a player's page; they stay here across searches, up to ${BASKET_MAX}.</div></div>`;
+  const shared = sharedKeys(ps), axes = axesState(ps);
+  const mixed = ps.some(p => p.position === "G") && ps.some(p => p.position !== "G");
+  return `<h1>Compare <span class="muted small">${ps.length} of ${BASKET_MAX}</span></h1>
+  <div class="filters">
+    ${ps.map((p, i) => `<span class="chip-p"><span class="sw" style="background:${seriesColor(i)}"></span><span>${esc(fullName(p))}</span><button type="button" class="x" data-unpick="${p.player_id}" aria-label="Remove ${esc(fullName(p))}">×</button></span>`).join("")}
+    <button class="chip" type="button" data-unpick-all>Clear all</button>
+    ${mixed ? `<span class="muted small">Skaters and goalies together: only the grades they share are compared.</span>` : ""}
+  </div>
+  <section class="cmp-viz">
+    <div class="cmp-axes">
+      <h2>Attributes on the chart <span class="muted small">(pick 3 to 8)</span></h2>
+      <div class="axes">${shared.map(k => `<label><input type="checkbox" data-ax="${k}" ${axes.includes(k) ? "checked" : ""}> ${esc(ATTR_LABEL[k] || k)}</label>`).join("")}</div>
+    </div>
+    <div class="cmp-radar">${radar(ps, axes)}
+      <ul class="legend">${ps.map((p, i) => `<li><span class="sw" style="background:${seriesColor(i)}"></span>${esc(fullName(p))}</li>`).join("")}</ul></div>
+  </section>
+  <section class="cmp-viz">
+    <div><h2>Attribute by attribute</h2>${bars(ps, axes)}</div>
+    <div><h2>Who wins</h2><p class="small muted">On the ${axes.length} attributes chosen above.</p>${whoWins(ps, axes)}</div>
+  </section>
+  <h2>Everything, side by side</h2>
+  ${compareTable(ps)}`;
+};
+function bindCompare(root) {
+  root.querySelectorAll("[data-unpick]").forEach(b => b.addEventListener("click", () => { togglePick(Number(b.dataset.unpick), false); render({ keepFocus: "h1" }); }));
+  root.querySelector("[data-unpick-all]")?.addEventListener("click", () => { setBasket([]); render(); });
+  root.querySelectorAll("[data-ax]").forEach(cb => cb.addEventListener("change", () => {
+    const ps = basket().map(id => byId.get(id)).filter(Boolean);
+    const on = [...root.querySelectorAll("[data-ax]:checked")].map(x => x.dataset.ax);
+    if (on.length < 3 || on.length > 8) { cb.checked = !cb.checked; return; }
+    setAxes(sharedKeys(ps).filter(k => on.includes(k)));
+  }));
+}
+
 // ---------------------------------------------------------------- router
 const scrollMemory = new Map();
 let lastKey = null;
@@ -610,10 +808,13 @@ function render(opts = {}) {
   root.innerHTML = fn(arg);
   document.querySelectorAll(".tabs a").forEach(a => a.dataset.route === route ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   if (route === "roster") bindRoster(root);
+  if (route === "compare") bindCompare(root);
+  if (route === "player") root.querySelector("[data-pick-one]")?.addEventListener("click", e => { const id = Number(e.currentTarget.dataset.pickOne); const on = !basket().includes(id); if (!togglePick(id, on)) { e.currentTarget.textContent = `Basket is full (${BASKET_MAX})`; return; } render({ keepFocus: "[data-pick-one]" }); });
+  refreshBasketTab();
   if (opts.keepFocus) { const el = root.querySelector(opts.keepFocus); if (el) { el.focus(); el.setSelectionRange?.(el.value.length, el.value.length); } }
-  const titles = { dashboard: "Today", lines: "Lines", roster: "Roster", player: "Player", proposals: "Proposals", inbox: "Inbox", reports: "Reports", owed: "Owed", missing: "Not found" };
+  const titles = { dashboard: "Today", lines: "Lines", roster: "Roster", player: "Player", proposals: "Proposals", inbox: "Inbox", reports: "Reports", owed: "Owed", compare: "Compare", missing: "Not found" };
   document.title = `${titles[route] || "Front Office"} · Leafs Front Office`;
-  const key = route === "roster" ? "roster" : raw;
+  const key = route === "roster" ? "roster" : route === "compare" ? "compare" : raw;
   if (!opts.keepFocus) {
     if (route === "inbox" && arg) document.getElementById(arg)?.scrollIntoView({ block: "start" });
     else if (opts.back && scrollMemory.has(key)) window.scrollTo(0, scrollMemory.get(key));
