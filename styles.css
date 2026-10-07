@@ -418,3 +418,10 @@ details.more > summary { cursor: pointer; padding: .4rem 0; color: var(--ink-2);
 .tbl-wrap.cmp-wrap { max-height: none; overflow: visible; }
 .tbl.cmp thead th { position: static; }
 .tbl.cmp td.best { color: var(--leaf); font-weight: 600; }
+
+/* the retired: kept on the record, greyed, under a category of their own */
+tr.ret td, tr.ret .name a { color: #8a8f99; }
+tr.ret .face, tr.ret img { filter: grayscale(1); opacity: .7; }
+li.ret { opacity: .6; } li.ret img { filter: grayscale(1); }
+.panel.ret .plate img, .panel.ret .face { filter: grayscale(1); opacity: .8; }
+.tag-ret { background: #6b7280; color: #fff; }

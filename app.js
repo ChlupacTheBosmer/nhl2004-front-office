@@ -95,7 +95,7 @@ function plate(p, { size = "row", state = "", sub, side, note, eager = false, he
   const tags = (p.injury?.out ? `<span class="tag tag-out">out${p.injury.part ? " (" + esc(p.injury.part) + ")" : ""} to ${esc(fmtDate(p.injury.return_date))}</span>` : "")
     + (p.marker ? `<span class="tag tag-mark tag-${esc(p.marker.icon)}" title="${esc(p.marker.note)}">${MARK_GLYPH[p.marker.icon] || ""} ${esc(p.marker.label)}</span>` : "")
     + (p.badges || []).map(b => `<span class="tag tag-badge" title="a displayed rating of 90 or better">${BADGE_GLYPH[b] || ""} ${esc(b)}</span>`).join("")
-    + (!p.dressed ? `<span class="tag tag-out">scratched</span>` : "")
+    + (!p.dressed && !p.retired ? `<span class="tag tag-out">scratched</span>` : "")
     + (p.rating_source === "full" ? `<span class="tag tag-rev" title="revised grades on file">revised</span>` : "");
   const subline = sub ?? `${esc(p.position)} · ${p.age} · ${esc(p.team)}`;
   const sideline = side ?? strip(p);
@@ -306,7 +306,7 @@ views.roster = () => {
   const cols = goalieMode ? GOALIE_COLS : SKATER_COLS;
   const val = (p, k) => k in p ? p[k] : (p.ratings || {})[k];
   const dir = Number(s.dir);
-  let rows = D.players.filter(p => (s.tor !== "1" || p.team === TOR) && (!s.team || p.team === s.team) && (!s.pos || p.position === s.pos) && (!s.q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(s.q.toLowerCase())) && passesAdvanced(p, s));
+  let rows = D.players.filter(p => (s.tor !== "1" || p.team === TOR) && (s.team ? p.team === s.team : p.team !== "RET") && (!s.pos || p.position === s.pos) && (!s.q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(s.q.toLowerCase())) && passesAdvanced(p, s));
   const picked = new Set(basket());
   rows.sort((a, b) => { const x = val(a, s.sort), y = val(b, s.sort); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * dir || a.last_name.localeCompare(b.last_name); });
   const th = (k, label, cls = "") => `<th scope="col" class="${cls}" aria-sort="${s.sort === k ? (dir < 0 ? "descending" : "ascending") : "none"}"><button type="button" class="sort" data-sort="${k}" title="Sort by ${esc(ATTR_LABEL[k] || label)}">${esc(label)}</button></th>`;
@@ -320,7 +320,7 @@ views.roster = () => {
   return `<h1>Roster</h1>
   <div class="filters">
     <button class="chip" type="button" data-tor aria-pressed="${s.tor === "1"}">Toronto only</button>
-    <select data-team aria-label="Team"><option value="">All teams</option>${teams}</select>
+    <select data-team aria-label="Team"><option value="">All teams</option>${teams}<option value="RET" ${s.team === "RET" ? "selected" : ""}>Retired players</option></select>
     <select data-pos aria-label="Position"><option value="">All positions</option>${["C", "LW", "RW", "D", "G"].map(p => `<option ${s.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>
     <input data-q type="search" placeholder="Filter by name" value="${esc(s.q)}" aria-label="Filter by name">
     <button class="chip" type="button" data-more aria-expanded="${s.more === "1"}" aria-controls="adv">More filters${advancedCount(s) ? ` (${advancedCount(s)})` : ""}</button>
@@ -336,10 +336,10 @@ views.roster = () => {
   </div>
   <div class="tbl-wrap"><table class="tbl">
     <thead><tr><th scope="col" class="pick" title="Add to compare"><span class="sr-only">Compare</span></th>${th("last_name", "Player", "l")}${th("position", "Pos")}${th("age", "Age")}${th("team", "Team")}${statCols.map(([k, l]) => th(k, l)).join("")}${cols.map(k => th(k, k.replace(/_/g, ""))).join("")}</tr></thead>
-    <tbody>${rows.length ? rows.map(p => `<tr>
+    <tbody>${rows.length ? rows.map(p => `<tr class="${p.retired ? "ret" : ""}">
       <td class="pick"><input type="checkbox" data-pick="${p.player_id}" ${picked.has(p.player_id) ? "checked" : ""} aria-label="Compare ${esc(p.first_name)} ${esc(p.last_name)}"></td>
-      <td class="name l"><a href="#player/${p.player_id}">${face(p)}<span>${esc(p.first_name)} ${esc(p.last_name)}${p.rating_source === "full" ? ' <span class="tag tag-rev">revised</span>' : ""}${p.injury?.out ? ' <span class="tag tag-out">out</span>' : ""}</span></a></td>
-      <td>${esc(p.position)}</td><td>${p.age ?? ""}</td><td>${esc(p.team)}</td>
+      <td class="name l"><a href="#player/${p.player_id}">${face(p)}<span>${esc(p.first_name)} ${esc(p.last_name)}${p.rating_source === "full" ? ' <span class="tag tag-rev">revised</span>' : ""}${p.injury?.out ? ' <span class="tag tag-out">out</span>' : ""}${p.retired ? ' <span class="tag tag-ret">retired</span>' : ""}</span></a></td>
+      <td>${esc(p.position)}</td><td>${p.age ?? ""}</td><td>${p.retired ? `<span class="muted">Retired${p.retired.last_team ? " · " + esc(p.retired.last_team) : ""}</span>` : esc(p.team)}</td>
       ${statCols.map(([k]) => k === "overall" ? g(p.overall) : `<td>${k === "salary" ? fmtMoney(p[k]) : (p[k] ?? "")}</td>`).join("")}
       ${cols.map(k => p.position === "G" && !goalieMode ? "<td></td>" : g((p.ratings || {})[k])).join("")}
     </tr>`).join("") : `<tr><td class="l" colspan="${ncols}"><div class="empty">No player matches. Clear a filter, or turn off Toronto only.</div></td></tr>`}</tbody>
@@ -374,16 +374,19 @@ views.player = id => {
   const notes = about;
   const slotNames = p.slots.filter(s => !/^[HX]/.test(s.code)).map(s => ({ even_strength: "Line", power_play: "PP", penalty_kill: "PK", four_on_four: "4v4", five_on_three: "5v3", goalie: "G", shootout: "SO" }[s.unit] ?? s.unit) + (s.unit_no ?? "") + " " + (s.position || "")).join(" · ");
   const inBasket = basket().includes(p.player_id);
+  const club = p.retired
+    ? `Retired since ${esc(fmtDate(p.retired.since))}${p.retired.last_team ? ` · last club ${esc(teamByAbbr.get(p.retired.last_team)?.name.replace("®", "") || p.retired.last_team)}` : ""}`
+    : esc(t?.name.replace("®", "") || p.team);
   return `
   <p class="cmp-cta"><button type="button" class="chip" data-pick-one="${p.player_id}" aria-pressed="${inBasket}">${inBasket ? "In the basket · remove" : "Add to compare"}</button> <a class="small muted" href="#compare">Compare tab${basket().length ? ` (${basket().length})` : ""}</a></p>
-  <div class="panel">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${esc(t?.name.replace("®", "") || p.team)}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: ovrBig(p) })}</div>
+  <div class="panel${p.retired ? " ret" : ""}">${plate(p, { size: "card", eager: true, heading: true, sub: `${esc(POS_LABEL[p.position] || p.position)} · ${p.age} · ${club}${p.height_in ? ` · ${Math.floor(p.height_in / 12)}'${p.height_in % 12}"` : ""}${p.weight_lb ? ` · ${p.weight_lb} lb` : ""}${p.handedness ? ` · shoots ${esc(p.handedness)}` : ""}`, side: ovrBig(p) })}</div>
   <div class="grid-2" style="margin-top:1rem">
     <section>
       ${p.overall != null ? `<p class="small muted ovr-note"><b>Overall ${p.overall}</b> as the game shows it today${partsText(p)}</p>` : ""}
       <h2>Grades <span class="muted small">as shown today${p.rating_source === "full" ? "; revised stored grades on file" : ""}</span></h2>
       <div class="grades">${keys.map(k => r[k] == null ? "" : `<div class="grade" ${rs[k] != null && rs[k] !== r[k] ? `title="stored ${rs[k]}"` : ""}><span class="grade-k"${attrTitle(k)}>${esc(k.replace(/_/g, ""))}</span><span class="grade-bar"><i class="${r[k] >= 85 ? "hi" : ""}" style="width:${Math.max(0, Math.min(100, (r[k] - 50) * 2))}%"></i></span><span class="grade-v">${r[k]}${rs[k] != null && rs[k] !== r[k] ? `<span class="grade-d">${r[k] - rs[k] > 0 ? "+" : ""}${r[k] - rs[k]}</span>` : ""}</span></div>`).join("")}</div>
       <p class="small muted" style="margin-top:.75rem">A grade carries a small figure where today's number differs from the stored grade: form, morale, facilities and venue move it day to day.</p>
-      <h2>This season</h2>
+      <h2>${p.retired ? `Last season, ${esc(p.retired.last_team || "unsigned")}` : "This season"}</h2>
       <div class="facts">
         ${p.position === "G"
           ? `${fact(p.gp, "games")}${fact(`${p.wins ?? 0}-${p.losses ?? 0}`, "record")}${fact(p.gaa, "GAA")}${fact(p.sv_pct, "save %")}${fact(p.shutouts, "shutouts")}${fact(p.mpg, "min / game")}`
@@ -571,9 +574,9 @@ function bindFind() {
   const show = () => {
     const q = input.value.trim().toLowerCase();
     if (q.length < 2) return close();
-    hits = D.players.filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q)).sort((a, b) => (a.team === TOR ? -1 : 0) - (b.team === TOR ? -1 : 0) || a.last_name.localeCompare(b.last_name)).slice(0, 12);
+    hits = D.players.filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q)).sort((a, b) => (a.retired ? 1 : 0) - (b.retired ? 1 : 0) || (a.team === TOR ? -1 : 0) - (b.team === TOR ? -1 : 0) || a.last_name.localeCompare(b.last_name)).slice(0, 12);
     list.innerHTML = hits.length
-      ? hits.map((p, i) => `<li role="option" id="opt-${i}" aria-selected="${i === sel}" data-i="${i}">${face(p)}<span><b>${esc(p.first_name)} ${esc(p.last_name)}</b> <span class="muted small">${esc(p.position)} · ${esc(p.team)} · ${p.age}</span></span></li>`).join("")
+      ? hits.map((p, i) => `<li role="option" id="opt-${i}" aria-selected="${i === sel}" data-i="${i}" class="${p.retired ? "ret" : ""}">${face(p)}<span><b>${esc(p.first_name)} ${esc(p.last_name)}</b> <span class="muted small">${esc(p.position)} · ${p.retired ? "retired" + (p.retired.last_team ? ", last " + esc(p.retired.last_team) : "") : esc(p.team)} · ${p.age}</span></span></li>`).join("")
       : `<li class="empty" aria-disabled="true">No player by that name</li>`;
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
