@@ -411,7 +411,9 @@ views.player = id => {
   </div>`;
 };
 const fact = (v, label) => `<div class="fact"><b>${v == null || v === "" ? NA : esc(v)}</b><span>${esc(label)}</span></div>`;
-const tcrest = a => a ? `<img class="tc" src="${asset(`logos/square/${a}.png`)}" alt="" title="${esc(a)}">` : "";
+const tcrest = a => { const t = a && teamByAbbr.get(a); return t ? `<img class="tc" src="${asset(t.logo_square)}" alt="" title="${esc(a)}">` : `<span class="tc"></span>`; };
+const fmtDay = s => { if (!s) return ""; const d = new Date(String(s) + "T00:00:00"); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
+const nth = n => `${n}${ordinal(n)}`;
 const season_of = d => { const y = +d.slice(0, 4), m = +d.slice(5, 7); const s = m >= 8 ? y : y - 1; return `${s}-${String(s + 1).slice(2)}`; };
 
 // The record of a career: every season with a line (2003-04 ships with the
@@ -422,7 +424,8 @@ function careerHtml(p) {
   const row = s => {
     const club = s.clubs.length ? s.clubs.join(", ") : `<span class="muted" title="the save keeps a season's line, not the club it was played for; clubs are known from the first save on">not on record</span>`;
     const wl = s.moved ? `<span class="muted" title="the game resets a traded goaltender's wins and losses, so a season with a move has no record to show">–</span>` : `${s.wins ?? 0}-${s.losses ?? 0}`;
-    return `<tr class="${s.is_playoffs ? "po" : ""}"><td class="l">${esc(s.label)}${s.is_playoffs ? ' <small class="muted">playoffs</small>' : ""}</td><td class="l">${club}</td>` + (g
+    const upto = s.read_to ? ` <small class="muted" title="later saves rewrote this line (the game does that to a traded man's history); this is the last reading that agreed with the ones before it">to ${esc(fmtDay(s.read_to))}</small>` : "";
+    return `<tr class="${s.is_playoffs ? "po" : ""}"><td class="l">${esc(s.label)}${s.is_playoffs ? ' <small class="muted">playoffs</small>' : ""}${upto}</td><td class="l">${club}</td>` + (g
       ? `<td>${s.gp}</td><td>${wl}</td><td>${s.gaa ?? ""}</td><td>${s.sv_pct ?? ""}</td><td>${s.shutouts ?? 0}</td><td>${s.minutes ?? ""}</td>`
       : `<td>${s.gp}</td><td>${s.goals ?? 0}</td><td>${s.assists ?? 0}</td><td>${s.points ?? 0}</td><td>${s.pim ?? 0}</td><td>${s.plus_minus_or_ppp ?? ""}</td><td>${s.pp_goals ?? 0}</td><td>${s.gw_goals ?? 0}</td><td>${s.shots ?? 0}</td><td>${s.mpg ?? ""}</td>`) + "</tr>";
   };
@@ -430,7 +433,7 @@ function careerHtml(p) {
   const how = st => { const h = st.how || {}; const t = D.trades.find(x => x.txn_id === h.txn_id);
     return h.kind === "trade" ? `by trade${h.from ? " from " + esc(h.from) : ""}${t ? ` · <a href="#trade/${t.txn_id}">the deal</a>` : ""}${h.confidence !== "news" ? ' <span class="tag">read off the rosters</span>' : ""}`
       : h.kind === "move" ? `moved${h.from ? " from " + esc(h.from) : ""}` : h.kind === "draft" ? "drafted" : h.kind === "start" ? esc(h.note) : esc(h.note || ""); };
-  const stints = c.stints.map(st => `<li>${tcrest(st.abbr)}<div><b>${esc(st.abbr)}</b> · ${esc(fmtDate(st.from))} to ${st.ended ? esc(fmtDate(st.to)) : "today"}<br><small class="muted">${how(st)}</small></div></li>`).join("");
+  const stints = c.stints.map(st => `<li>${tcrest(st.abbr)}<div><b>${esc(st.abbr)}</b> · ${esc(fmtDay(st.from))} to ${st.ended ? esc(fmtDay(st.to)) : "today"}<br><small class="muted">${how(st)}</small></div></li>`).join("");
   return `<h2>Career <span class="muted small">every season on record</span></h2>
   <div class="tbl-wrap career"><table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th>${head}</tr></thead><tbody>${c.seasons.map(row).join("") || `<tr><td colspan="12" class="l muted">No season on record.</td></tr>`}</tbody></table></div>
   <h2>Clubs <span class="muted small">since the record began</span></h2>
@@ -441,9 +444,9 @@ function careerHtml(p) {
 views.trades = () => {
   const by = new Map();
   for (const t of D.trades) { const k = season_of(String(t.window_end)); if (!by.has(k)) by.set(k, []); by.get(k).push(t); }
-  const side = (t, club) => t.items.filter(i => i.to_team === club).map(i => i.item_kind === "pick" ? `${esc(i.pick_original)} ${ordinal(i.pick_round + 1)}` : `${esc(i.first_name)} ${esc(i.last_name)}`).join(", ") || "nothing on record";
+  const side = (t, club) => t.items.filter(i => i.to_team === club).map(i => i.item_kind === "pick" ? `${esc(i.pick_original)}'s ${nth(i.pick_round + 1)}` : `${esc(i.first_name)} ${esc(i.last_name)}`).join(", ") || "nothing on record";
   const rows = [...by.entries()].map(([k, ts]) => `<h2>${esc(k)} <span class="muted small">${ts.length} deal${ts.length === 1 ? "" : "s"}</span></h2><div class="panel divide">${ts.map(t => `
-    <a class="tx" href="#trade/${t.txn_id}"><div class="tx-when">${t.filed ? esc(fmtDate(t.filed.date)) : `<span class="muted" title="read off the rosters between two saves">${esc(fmtDate(t.window_start))} to ${esc(fmtDate(t.window_end))}</span>`}</div>
+    <a class="tx" href="#trade/${t.txn_id}"><div class="tx-when">${t.filed ? esc(fmtDay(t.filed.date)) : `<span class="muted" title="read off the rosters between two saves">${esc(fmtDay(t.window_start))} to ${esc(fmtDay(t.window_end))}</span>`}</div>
       <div class="tx-side">${tcrest(t.team_a)}<b>${esc(t.team_a)}</b> get ${side(t, t.team_a)}</div>
       <div class="tx-side">${tcrest(t.team_b)}<b>${esc(t.team_b)}</b> get ${side(t, t.team_b)}</div>
       ${t.confidence !== "news" ? '<span class="tag">read off the rosters</span>' : ""}</a>`).join("")}</div>`).join("");
@@ -454,14 +457,14 @@ views.trade = id => {
   if (!t) return views.missing();
   const got = club => t.items.filter(i => i.to_team === club);
   const item = i => i.item_kind === "pick"
-    ? `<li class="pick">${tcrest(i.pick_original)}<div><b>${esc(i.pick_original)}'s ${ordinal(i.pick_round + 1)}-round pick</b><small class="muted">a draft pick</small></div></li>`
+    ? `<li class="pick">${tcrest(i.pick_original)}<div><b>${esc(i.pick_original)}'s ${nth(i.pick_round + 1)}-round pick</b><small class="muted">a draft pick</small></div></li>`
     : `<li>${byId.get(i.player_id) ? face(byId.get(i.player_id)) : ""}<div><a href="#player/${i.player_id}"><b>${esc(i.first_name)} ${esc(i.last_name)}</b></a><small class="muted">${esc(i.position || "")}${i.age ? " · " + i.age : ""}${i.overall != null ? " · OVR " + i.overall + " at the time" : ""}</small></div></li>`;
   const col = club => `<section class="panel tx-col"><div class="panel-h"><h2>${tcrest(club)} ${esc(D.teams[club]?.name?.replace("®", "") || club)} <span class="muted small">receive</span></h2></div><ul class="tx-list">${got(club).map(item).join("") || '<li class="muted">nothing on record</li>'}</ul></section>`;
   return `<p class="small"><a href="#trades">&larr; All trades</a></p>
-  <h1>${esc(t.team_a)} and ${esc(t.team_b)}${t.filed ? `, ${esc(fmtDate(t.filed.date))}` : ""}</h1>
-  <p class="muted">${t.filed ? esc(t.filed.text) : `Read off the rosters between the saves of ${esc(fmtDate(t.window_start))} and ${esc(fmtDate(t.window_end))}; the game's log did not file it, so the pairing of these moves is the pipeline's, not the league's.`}</p>
+  <h1>${esc(t.team_a)} and ${esc(t.team_b)}${t.filed ? `, ${esc(fmtDay(t.filed.date))}` : ""}</h1>
+  <p class="muted">${t.filed ? esc(t.filed.text) : `Read off the rosters between the saves of ${esc(fmtDay(t.window_start))} and ${esc(fmtDay(t.window_end))}; the game's log did not file it, so the pairing of these moves is the pipeline's, not the league's.`}</p>
   <div class="grid-2">${col(t.team_a)}${col(t.team_b)}</div>
-  ${t.news?.length ? `<h2>In the news</h2><ul class="newslist">${t.news.map(n => `<li><a href="${esc(n.url)}">${esc(n.headline)}</a><span class="muted small">${esc(OUTLET_LABEL[n.outlet] || n.outlet)} · ${esc(fmtDate(n.date))}</span></li>`).join("")}</ul>` : ""}`;
+  ${t.news?.length ? `<h2>In the news</h2><ul class="newslist">${t.news.map(n => `<li><a href="${esc(n.url)}">${esc(n.headline)}</a><span class="muted small">${esc(OUTLET_LABEL[n.outlet] || n.outlet)} · ${esc(fmtDay(n.date))}</span></li>`).join("")}</ul>` : ""}`;
 };
 
 views.proposals = () => `<h1>Proposals</h1><p class="muted">Every recommendation the staff have filed, newest first. Line changes show the current plate struck and the proposed one beside it; trades show both sides. The latest run of each is open.</p>
