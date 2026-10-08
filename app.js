@@ -39,7 +39,7 @@ let byId = new Map(), byTeam = new Map(), bySurname = new Map(), TOR = "TOR", te
 
 // ---------------------------------------------------------------- boot
 async function load() {
-  const names = ["meta", "teams", "players", "schedule", "recommendations", "reports", "inbox", "owed"];
+  const names = ["meta", "teams", "players", "schedule", "recommendations", "reports", "inbox", "owed", "careers", "trades"];
   const res = await Promise.all(names.map(n => fetch(`data/${n}.json?b=${BUILD}`).then(r => { if (!r.ok) throw new Error(`${n}.json ${r.status}`); return r.json(); })));
   names.forEach((n, i) => D[n] = res[i]);
   TOR = D.meta.team;
@@ -398,6 +398,7 @@ views.player = id => {
         ${fact(p.marker ? p.marker.label : null, "form")}${(p.badges || []).length ? fact(p.badges.join(", "), "badges") : ""}${fact(p.dressed ? "dressed" : "scratched", "tonight")}${fact(p.injury ? (p.injury.out ? (p.injury.part ? p.injury.part + ", out to " : "out to ") + fmtDate(p.injury.return_date) : "fit, back " + fmtDate(p.injury.return_date)) : "fit", "health")}${p.draft_year && p.draft_pick ? fact(`${p.draft_year}, ${p.draft_pick}${ordinal(p.draft_pick)} overall (round ${Math.floor((p.draft_pick - 1) / 30) + 1})`, "drafted") : ""}${p.trophies ? fact(esc(p.trophies), "last season") : ""}
       </div>
       ${slotNames ? `<p class="small muted" style="margin-top:.75rem">Units: ${esc(slotNames)}</p>` : ""}
+      ${careerHtml(p)}
     </section>
     <section>
       ${p.news?.length ? `<h2>In the news <span class="muted small">${p.news.length} stor${p.news.length === 1 ? "y" : "ies"}</span></h2>
@@ -410,6 +411,58 @@ views.player = id => {
   </div>`;
 };
 const fact = (v, label) => `<div class="fact"><b>${v == null || v === "" ? NA : esc(v)}</b><span>${esc(label)}</span></div>`;
+const tcrest = a => a ? `<img class="tc" src="${asset(`logos/square/${a}.png`)}" alt="" title="${esc(a)}">` : "";
+const season_of = d => { const y = +d.slice(0, 4), m = +d.slice(5, 7); const s = m >= 8 ? y : y - 1; return `${s}-${String(s + 1).slice(2)}`; };
+
+// The record of a career: every season with a line (2003-04 ships with the
+// game), the clubs from the stint history, and how each stint began.
+function careerHtml(p) {
+  const c = D.careers[p.player_id]; if (!c) return "";
+  const g = p.position === "G";
+  const row = s => {
+    const club = s.clubs.length ? s.clubs.join(", ") : `<span class="muted" title="the save keeps a season's line, not the club it was played for; clubs are known from the first save on">not on record</span>`;
+    const wl = s.moved ? `<span class="muted" title="the game resets a traded goaltender's wins and losses, so a season with a move has no record to show">–</span>` : `${s.wins ?? 0}-${s.losses ?? 0}`;
+    return `<tr class="${s.is_playoffs ? "po" : ""}"><td class="l">${esc(s.label)}${s.is_playoffs ? ' <small class="muted">playoffs</small>' : ""}</td><td class="l">${club}</td>` + (g
+      ? `<td>${s.gp}</td><td>${wl}</td><td>${s.gaa ?? ""}</td><td>${s.sv_pct ?? ""}</td><td>${s.shutouts ?? 0}</td><td>${s.minutes ?? ""}</td>`
+      : `<td>${s.gp}</td><td>${s.goals ?? 0}</td><td>${s.assists ?? 0}</td><td>${s.points ?? 0}</td><td>${s.pim ?? 0}</td><td>${s.plus_minus_or_ppp ?? ""}</td><td>${s.pp_goals ?? 0}</td><td>${s.gw_goals ?? 0}</td><td>${s.shots ?? 0}</td><td>${s.mpg ?? ""}</td>`) + "</tr>";
+  };
+  const head = g ? "<th>GP</th><th>W-L</th><th>GAA</th><th>SV%</th><th>SO</th><th>MIN</th>" : "<th>GP</th><th>G</th><th>A</th><th>P</th><th>PIM</th><th>+/-</th><th>PP</th><th>GW</th><th>S</th><th>MPG</th>";
+  const how = st => { const h = st.how || {}; const t = D.trades.find(x => x.txn_id === h.txn_id);
+    return h.kind === "trade" ? `by trade${h.from ? " from " + esc(h.from) : ""}${t ? ` · <a href="#trade/${t.txn_id}">the deal</a>` : ""}${h.confidence !== "news" ? ' <span class="tag">read off the rosters</span>' : ""}`
+      : h.kind === "move" ? `moved${h.from ? " from " + esc(h.from) : ""}` : h.kind === "draft" ? "drafted" : h.kind === "start" ? esc(h.note) : esc(h.note || ""); };
+  const stints = c.stints.map(st => `<li>${tcrest(st.abbr)}<div><b>${esc(st.abbr)}</b> · ${esc(fmtDate(st.from))} to ${st.ended ? esc(fmtDate(st.to)) : "today"}<br><small class="muted">${how(st)}</small></div></li>`).join("");
+  return `<h2>Career <span class="muted small">every season on record</span></h2>
+  <div class="tbl-wrap career"><table class="tbl"><thead><tr><th class="l">Season</th><th class="l">Club</th>${head}</tr></thead><tbody>${c.seasons.map(row).join("") || `<tr><td colspan="12" class="l muted">No season on record.</td></tr>`}</tbody></table></div>
+  <h2>Clubs <span class="muted small">since the record began</span></h2>
+  <ul class="clubs">${stints || '<li class="muted">No stint on record.</li>'}</ul>`;
+}
+
+// The deals: every two-way trade on record, newest first, by season.
+views.trades = () => {
+  const by = new Map();
+  for (const t of D.trades) { const k = season_of(String(t.window_end)); if (!by.has(k)) by.set(k, []); by.get(k).push(t); }
+  const side = (t, club) => t.items.filter(i => i.to_team === club).map(i => i.item_kind === "pick" ? `${esc(i.pick_original)} ${ordinal(i.pick_round + 1)}` : `${esc(i.first_name)} ${esc(i.last_name)}`).join(", ") || "nothing on record";
+  const rows = [...by.entries()].map(([k, ts]) => `<h2>${esc(k)} <span class="muted small">${ts.length} deal${ts.length === 1 ? "" : "s"}</span></h2><div class="panel divide">${ts.map(t => `
+    <a class="tx" href="#trade/${t.txn_id}"><div class="tx-when">${t.filed ? esc(fmtDate(t.filed.date)) : `<span class="muted" title="read off the rosters between two saves">${esc(fmtDate(t.window_start))} to ${esc(fmtDate(t.window_end))}</span>`}</div>
+      <div class="tx-side">${tcrest(t.team_a)}<b>${esc(t.team_a)}</b> get ${side(t, t.team_a)}</div>
+      <div class="tx-side">${tcrest(t.team_b)}<b>${esc(t.team_b)}</b> get ${side(t, t.team_b)}</div>
+      ${t.confidence !== "news" ? '<span class="tag">read off the rosters</span>' : ""}</a>`).join("")}</div>`).join("");
+  return `<h1>Trades</h1><p class="muted small">Every two-way deal on record. The game's own log dates the ones it filed; the rest were read off the rosters between two saves and say so. One-way moves (signings, waivers, call-ups) are on each man's profile, not here.</p>${rows || '<div class="panel"><div class="empty">No trade on record.</div></div>'}`;
+};
+views.trade = id => {
+  const t = D.trades.find(x => x.txn_id === Number(id));
+  if (!t) return views.missing();
+  const got = club => t.items.filter(i => i.to_team === club);
+  const item = i => i.item_kind === "pick"
+    ? `<li class="pick">${tcrest(i.pick_original)}<div><b>${esc(i.pick_original)}'s ${ordinal(i.pick_round + 1)}-round pick</b><small class="muted">a draft pick</small></div></li>`
+    : `<li>${byId.get(i.player_id) ? face(byId.get(i.player_id)) : ""}<div><a href="#player/${i.player_id}"><b>${esc(i.first_name)} ${esc(i.last_name)}</b></a><small class="muted">${esc(i.position || "")}${i.age ? " · " + i.age : ""}${i.overall != null ? " · OVR " + i.overall + " at the time" : ""}</small></div></li>`;
+  const col = club => `<section class="panel tx-col"><div class="panel-h"><h2>${tcrest(club)} ${esc(D.teams[club]?.name?.replace("®", "") || club)} <span class="muted small">receive</span></h2></div><ul class="tx-list">${got(club).map(item).join("") || '<li class="muted">nothing on record</li>'}</ul></section>`;
+  return `<p class="small"><a href="#trades">&larr; All trades</a></p>
+  <h1>${esc(t.team_a)} and ${esc(t.team_b)}${t.filed ? `, ${esc(fmtDate(t.filed.date))}` : ""}</h1>
+  <p class="muted">${t.filed ? esc(t.filed.text) : `Read off the rosters between the saves of ${esc(fmtDate(t.window_start))} and ${esc(fmtDate(t.window_end))}; the game's log did not file it, so the pairing of these moves is the pipeline's, not the league's.`}</p>
+  <div class="grid-2">${col(t.team_a)}${col(t.team_b)}</div>
+  ${t.news?.length ? `<h2>In the news</h2><ul class="newslist">${t.news.map(n => `<li><a href="${esc(n.url)}">${esc(n.headline)}</a><span class="muted small">${esc(OUTLET_LABEL[n.outlet] || n.outlet)} · ${esc(fmtDate(n.date))}</span></li>`).join("")}</ul>` : ""}`;
+};
 
 views.proposals = () => `<h1>Proposals</h1><p class="muted">Every recommendation the staff have filed, newest first. Line changes show the current plate struck and the proposed one beside it; trades show both sides. The latest run of each is open.</p>
   <div class="runs">${D.recommendations.length ? D.recommendations.map(run => runHtml(run, { collapsible: true, open: latestRuns().includes(run) })).join("") : `<div class="panel"><div class="empty">No proposals yet. They arrive with the next report.</div></div>`}</div>`;

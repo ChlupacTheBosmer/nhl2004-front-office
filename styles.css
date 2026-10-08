@@ -425,3 +425,12 @@ tr.ret .face, tr.ret img { filter: grayscale(1); opacity: .7; }
 li.ret { opacity: .6; } li.ret img { filter: grayscale(1); }
 .panel.ret .plate img, .panel.ret .face { filter: grayscale(1); opacity: .8; }
 .tag-ret { background: #6b7280; color: #fff; }
+
+/* careers, clubs, trades */
+.tc { width: 22px; height: 22px; object-fit: contain; vertical-align: middle; }
+.career { max-height: none; margin-bottom: 1rem; } .career td, .career th { white-space: nowrap; } .career tr.po td { color: var(--muted); }
+.clubs { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .5rem; } .clubs li { display: grid; grid-template-columns: 26px 1fr; gap: .6rem; align-items: start; } .clubs .tag, .tx .tag { font-size: .68rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0 .3rem; color: var(--muted); }
+.tx { display: grid; grid-template-columns: 9rem 1fr 1fr auto; gap: .75rem; align-items: center; padding: .6rem .9rem; text-decoration: none; color: inherit; } .tx:hover { background: color-mix(in srgb, var(--ink, #000) 4%, transparent); }
+.tx-when { font-weight: 600; } .tx-side .tc { margin-right: .3rem; }
+.tx-col .panel-h h2 { display: flex; align-items: center; gap: .4rem; } .tx-list { list-style: none; margin: 0; padding: .4rem .9rem .6rem; display: grid; gap: .5rem; } .tx-list li { display: grid; grid-template-columns: 40px 1fr; gap: .6rem; align-items: center; } .tx-list li.pick .tc { width: 34px; height: 34px; } .tx-list small { display: block; }
+@media (max-width: 760px) { .tx { grid-template-columns: 1fr; gap: .25rem; } }
